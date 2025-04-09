@@ -33,7 +33,7 @@ const Dashboard = () => {
             {focusAreas.map(area => <div key={area.id} className="flex flex-col items-center p-4 neumorph-inner rounded-xl">
                 <h4 className="font-medium mb-3 text-bell-primary">{area.name}</h4>
                 <ProgressRing progress={area.progress}>
-                  <span className="text-lg font-bold">{area.progress}%</span>
+                  <span className="text-lg font-medium">{area.progress}%</span>
                 </ProgressRing>
               </div>)}
           </div>
