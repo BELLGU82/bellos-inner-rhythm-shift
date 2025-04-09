@@ -1,7 +1,4 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Miriam+Libre:wght@400;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -95,27 +92,11 @@
 
   body {
     @apply bg-bell-background text-bell-foreground;
-    font-family: 'IBM Plex Mono', monospace;
-  }
-
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-miriam font-bold;
+    font-family: 'Inter', sans-serif;
   }
 }
 
-/* RTL Support */
-.rtl {
-  direction: rtl;
-  text-align: right;
-}
-
-.rtl .bell-sidebar-item {
-  @apply flex flex-row-reverse justify-end;
-}
-
-/* ADHD-Friendly UI Components */
 @layer components {
-  /* Existing components */
   .neumorph {
     @apply bg-bell-background rounded-xl shadow-neumorph;
   }
@@ -147,66 +128,4 @@
   .bell-sidebar-item.active {
     @apply bg-bell-subtle text-bell-primary font-medium;
   }
-
-  /* New ADHD-Friendly components */
-  .bell-task-card {
-    @apply bg-bell-card rounded-xl shadow-neumorph-sm p-5 transition-all duration-300;
-  }
-  
-  .bell-task-card.expanded {
-    @apply shadow-neumorph z-10;
-  }
-  
-  .bell-task-card.faded {
-    @apply opacity-60;
-  }
-  
-  .bell-emotion-card {
-    @apply bg-gradient-to-br from-bell-primary/10 to-bell-secondary/10 rounded-xl p-5 shadow-sm;
-  }
-  
-  .bell-insight-card {
-    @apply bg-bell-subtle rounded-xl p-4 shadow-sm border-l-4 border-bell-primary;
-  }
-  
-  .bell-primary-btn {
-    @apply bg-accent-gradient text-white rounded-xl py-2 px-4 font-mono transition-all duration-200 
-           hover:opacity-90 hover:shadow-md focus:ring-2 ring-bell-primary/50 outline-none;
-  }
-  
-  .bell-secondary-btn {
-    @apply bg-bell-background border border-bell-muted text-bell-foreground rounded-xl py-2 px-4 
-           font-mono transition-all duration-200 hover:border-bell-primary focus:ring-2 
-           ring-bell-primary/30 outline-none;
-  }
-
-  .bell-outline-icon {
-    @apply w-5 h-5 stroke-1 text-bell-muted transition-all duration-200;
-  }
-  
-  .bell-outline-icon:hover {
-    @apply text-bell-primary;
-  }
-  
-  .bell-breathing-container {
-    @apply p-6 sm:p-8 space-y-6;
-  }
-  
-  /* Cognitive grounding zone */
-  .bell-breather {
-    @apply bg-bell-subtle/50 rounded-xl p-4 my-6 text-center italic text-bell-foreground/80;
-  }
-}
-
-/* Language toggle styles */
-.language-toggle {
-  @apply fixed top-4 right-4 flex items-center gap-2 z-50 font-mono text-sm;
-}
-
-.language-toggle button {
-  @apply px-2 py-1 rounded-md transition-all;
-}
-
-.language-toggle button.active {
-  @apply bg-bell-primary text-white;
 }

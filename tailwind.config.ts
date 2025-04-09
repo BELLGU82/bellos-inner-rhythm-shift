@@ -63,22 +63,17 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// BellOS specific colors - updated with the ADHD-friendly palette
+				// BellOS specific colors
 				bell: {
-					background: '#ECF0F3', // Updated monochrome base
+					background: '#f0f2f5',
 					foreground: '#2c3e50',
-					primary: '#F88AB0', // Pink accent
-					secondary: '#FF9F70', // Coral accent
-					accent: '#FF9F70',    // Coral accent as default accent
-					muted: '#C2CBDC',     // Updated muted color
-					card: '#E8EAF5',      // Updated card background
+					primary: '#4a6fa5',
+					secondary: '#8ca3c3',
+					accent: '#e74c3c',
+					muted: '#bdc3c7',
+					card: '#ffffff',
 					subtle: '#f8fafc'
 				}
-			},
-			fontFamily: {
-				// Add the new fonts
-				'miriam': ['Miriam Libre', 'sans-serif'],
-				'mono': ['IBM Plex Mono', 'JetBrains Mono', 'monospace'],
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
@@ -116,37 +111,9 @@ export default {
 					'0%': { opacity: '0', transform: 'translateY(10px)' },
 					'100%': { opacity: '1', transform: 'translateY(0)' }
 				},
-				'fade-out': {
-					'0%': { opacity: '1', transform: 'translateY(0)' },
-					'100%': { opacity: '0', transform: 'translateY(10px)' }
-				},
 				'scale-in': {
 					'0%': { transform: 'scale(0.95)', opacity: '0' },
 					'100%': { transform: 'scale(1)', opacity: '1' }
-				},
-				'scale-out': {
-					'0%': { transform: 'scale(1)', opacity: '1' },
-					'100%': { transform: 'scale(0.95)', opacity: '0' }
-				},
-				'slide-in-right': {
-					'0%': { transform: 'translateX(100%)' },
-					'100%': { transform: 'translateX(0)' }
-				},
-				'slide-out-right': {
-					'0%': { transform: 'translateX(0)' },
-					'100%': { transform: 'translateX(100%)' }
-				},
-				'slide-in-left': {
-					'0%': { transform: 'translateX(-100%)' },
-					'100%': { transform: 'translateX(0)' }
-				},
-				'slide-out-left': {
-					'0%': { transform: 'translateX(0)' },
-					'100%': { transform: 'translateX(-100%)' }
-				},
-				'shrink-fade': {
-					'0%': { transform: 'scale(1)', opacity: '1' },
-					'100%': { transform: 'scale(0.8)', opacity: '0' }
 				}
 			},
 			animation: {
@@ -154,21 +121,8 @@ export default {
 				'accordion-up': 'accordion-up 0.2s ease-out',
 				'pulse-subtle': 'pulse-subtle 3s infinite ease-in-out',
 				'fade-in': 'fade-in 0.4s ease-out',
-				'fade-out': 'fade-out 0.4s ease-out',
-				'scale-in': 'scale-in 0.3s ease-out',
-				'scale-out': 'scale-out 0.3s ease-out',
-				'slide-in-right': 'slide-in-right 0.3s ease-out',
-				'slide-out-right': 'slide-out-right 0.3s ease-out',
-				'slide-in-left': 'slide-in-left 0.3s ease-out',
-				'slide-out-left': 'slide-out-left 0.3s ease-out',
-				'shrink-fade': 'shrink-fade 0.3s ease-out',
-				'enter': 'fade-in 0.3s ease-out, scale-in 0.2s ease-out',
-				'exit': 'fade-out 0.3s ease-out, scale-out 0.2s ease-out'
-			},
-			// Add gradients
-			backgroundImage: {
-				'accent-gradient': 'linear-gradient(to right, #F88AB0, #FF9F70)',
-			},
+				'scale-in': 'scale-in 0.3s ease-out'
+			}
 		}
 	},
 	plugins: [require("tailwindcss-animate")],
