@@ -1,393 +1,621 @@
 // src/components/Reminders/ReminderList.tsx
-import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  List, 
-  ListItem, 
-  ListItemText, 
-  Typography, 
-  Chip, 
-  IconButton, 
-  Divider, 
-  Paper, 
-  Stack,
-  Button,
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Box,
+  Typography,
+  List,
+  ListItem,
+  ListItemText,
+  Chip,
+  IconButton,
+  Divider,
+  Menu,
+  MenuItem,
+  Badge,
+  Tooltip,
+  Paper,
+  TextField,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
+  useTheme,
   SelectChangeEvent,
-  TextField,
-  InputAdornment
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Button,
+  useMediaQuery
 } from '@mui/material';
-import { 
+import {
+  MoreVert as MoreVertIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
   CheckCircle as CheckCircleIcon,
-  Edit as EditIcon, 
-  Delete as DeleteIcon, 
-  AccessTime as AccessTimeIcon,
-  Search as SearchIcon,
-  FlagCircle as FlagIcon,
-  FilterList as FilterIcon
+  CheckCircleOutline as CheckCircleOutlineIcon,
+  Schedule as ScheduleIcon,
+  FilterList as FilterListIcon,
+  RestoreFromTrash as RestoreIcon,
+  Flag as FlagIcon,
+  LocalOffer as TagIcon,
+  Refresh as RefreshIcon
 } from '@mui/icons-material';
-import { format } from 'date-fns';
-import { he } from 'date-fns/locale';
-import { Reminder, getReminders, toggleReminderCompletion, deleteReminder } from '../../services/reminderService';
-import ReminderForm from './ReminderForm';
+import { useRouter } from 'next/router';
+import { Reminder, subscribeToReminders, deleteReminder, completeReminder, isOverdue, getDueText, updateReminder } from '../../services/reminderService';
+import { ReminderPriorityColors } from '../../theme';
 
 interface ReminderListProps {
+  onEditReminder?: (reminder: Reminder) => void;
   onAddReminder?: () => void;
+  showCompleted?: boolean;
+  maxItems?: number;
+  category?: string;
+  searchQuery?: string;
+  simpleView?: boolean;
 }
 
-const ReminderList: React.FC<ReminderListProps> = ({ onAddReminder }) => {
+const ReminderList: React.FC<ReminderListProps> = ({
+  onEditReminder,
+  onAddReminder,
+  showCompleted = false,
+  maxItems,
+  category,
+  searchQuery = '',
+  simpleView = false
+}) => {
+  const theme = useTheme();
+  const router = useRouter();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  // Local state
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [filteredReminders, setFilteredReminders] = useState<Reminder[]>([]);
-  const [selectedReminder, setSelectedReminder] = useState<Reminder | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterOption, setFilterOption] = useState('all');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
-
+  const [loading, setLoading] = useState<boolean>(true);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedReminderId, setSelectedReminderId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('dueDate');
+  const [openFilterMenu, setOpenFilterMenu] = useState<boolean>(false);
+  const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState<boolean>(false);
+  const [reminderToDelete, setReminderToDelete] = useState<Reminder | null>(null);
+  
   // Load reminders
   useEffect(() => {
-    loadReminders();
-  }, []);
-
-  // Extract unique categories for filter dropdown
-  useEffect(() => {
-    if (reminders.length > 0) {
-      const categories = Array.from(new Set(reminders.map(r => r.category).filter(Boolean))) as string[];
-      setAvailableCategories(categories);
-    }
-  }, [reminders]);
-
-  // Apply filters and search
-  useEffect(() => {
-    let filtered = reminders;
-    
-    // Apply status filter
-    if (filterOption === 'completed') {
-      filtered = filtered.filter(r => r.completed);
-    } else if (filterOption === 'active') {
-      filtered = filtered.filter(r => !r.completed);
-    } else if (filterOption === 'upcoming') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const nextWeek = new Date(today);
-      nextWeek.setDate(today.getDate() + 7);
-      
-      filtered = filtered.filter(r => {
-        if (!r.dueDate || r.completed) return false;
-        const dueDate = new Date(r.dueDate);
-        return dueDate >= today && dueDate <= nextWeek;
-      });
-    } else if (filterOption === 'overdue') {
-      const now = new Date();
-      filtered = filtered.filter(r => {
-        if (!r.dueDate || r.completed) return false;
-        const dueDate = new Date(r.dueDate);
-        return dueDate < now;
-      });
-    }
-    
-    // Apply category filter
-    if (categoryFilter !== 'all') {
-      filtered = filtered.filter(r => r.category === categoryFilter);
-    }
-    
-    // Apply search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        r => r.title.toLowerCase().includes(term) || 
-             (r.description && r.description.toLowerCase().includes(term))
-      );
-    }
-    
-    // Sort by due date, with null dates last
-    filtered.sort((a, b) => {
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+    const unsubscribe = subscribeToReminders((newReminders) => {
+      setReminders(newReminders);
+      setLoading(false);
     });
     
-    setFilteredReminders(filtered);
-  }, [reminders, searchTerm, filterOption, categoryFilter]);
-
-  const loadReminders = () => {
-    const allReminders = getReminders();
-    setReminders(allReminders);
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+  
+  // Handle menu open
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, id: string) => {
+    setAnchorEl(event.currentTarget);
+    setSelectedReminderId(id);
   };
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(e.target.value);
+  
+  // Handle menu close
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setSelectedReminderId(null);
   };
-
-  const handleFilterChange = (e: SelectChangeEvent) => {
-    setFilterOption(e.target.value);
+  
+  // Handle edit
+  const handleEdit = () => {
+    const reminder = reminders.find(r => r.id === selectedReminderId);
+    
+    if (reminder && onEditReminder) {
+      onEditReminder(reminder);
+    } else if (reminder) {
+      // For standalone usage, navigate to edit page
+      router.push(`/reminders/edit/${reminder.id}`);
+    }
+    
+    handleMenuClose();
   };
-
-  const handleCategoryFilterChange = (e: SelectChangeEvent) => {
-    setCategoryFilter(e.target.value);
+  
+  // Handle delete
+  const handleDeleteClick = () => {
+    const reminder = reminders.find(r => r.id === selectedReminderId);
+    if (reminder) {
+      setReminderToDelete(reminder);
+      setConfirmDeleteOpen(true);
+    }
+    handleMenuClose();
   };
-
-  const handleToggleComplete = (id: string) => {
-    toggleReminderCompletion(id);
-    loadReminders();
+  
+  // Confirm delete
+  const handleConfirmDelete = () => {
+    if (reminderToDelete) {
+      deleteReminder(reminderToDelete.id);
+    }
+    setConfirmDeleteOpen(false);
+    setReminderToDelete(null);
   };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm('האם אתה בטוח שברצונך למחוק את התזכורת הזו?')) {
-      deleteReminder(id);
-      loadReminders();
+  
+  // Handle toggle completion
+  const handleToggleComplete = (id: string, currentCompleted: boolean) => {
+    const reminder = reminders.find(r => r.id === id);
+    if (!reminder) return;
+    
+    if (currentCompleted) {
+      // Uncomplete
+      updateReminder({ ...reminder, completed: false, completedAt: undefined });
+    } else {
+      // Complete
+      completeReminder(id);
     }
   };
-
-  const handleEdit = (reminder: Reminder) => {
-    setSelectedReminder(reminder);
-    setIsEditDialogOpen(true);
-  };
-
-  const handleDialogClose = () => {
-    setIsEditDialogOpen(false);
-    setSelectedReminder(null);
-    loadReminders();
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'error';
-      case 'medium': return 'warning';
-      case 'low': return 'success';
-      default: return 'default';
-    }
-  };
-
-  const formatDueDate = (date: Date | null) => {
-    if (!date) return 'אין תאריך יעד';
-    return format(new Date(date), 'EEEE, d בMMMM yyyy', { locale: he });
-  };
-
-  const isDueToday = (date: Date | null) => {
-    if (!date) return false;
-    const today = new Date();
-    const dueDate = new Date(date);
-    return (
-      dueDate.getDate() === today.getDate() &&
-      dueDate.getMonth() === today.getMonth() &&
-      dueDate.getFullYear() === today.getFullYear()
-    );
-  };
-
-  const isOverdue = (date: Date | null, completed: boolean) => {
-    if (!date || completed) return false;
-    return new Date(date) < new Date();
-  };
-
-  return (
-    <Box sx={{ width: '100%', maxWidth: 800, margin: '0 auto' }}>
-      <Stack direction="row" justifyContent="space-between" mb={2}>
-        <Typography variant="h5" component="h2" sx={{ mb: 2, fontWeight: 600 }}>
-          תזכורות וניהול משימות
-        </Typography>
+  
+  // Filter the reminders based on criteria
+  const filteredReminders = useMemo(() => {
+    return reminders
+      .filter(reminder => {
+        // Apply completed filter
+        if (!showCompleted && reminder.completed) {
+          return false;
+        }
         
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={onAddReminder}
-          sx={{ height: 'fit-content' }}
-        >
-          תזכורת חדשה
-        </Button>
-      </Stack>
-
-      {/* Search and Filter */}
-      <Paper elevation={2} sx={{ p: 2, mb: 3 }}>
-        <Stack direction="row" spacing={2} mb={2} alignItems="center">
-          <TextField
-            label="חיפוש"
-            variant="outlined"
-            size="small"
-            fullWidth
-            value={searchTerm}
-            onChange={handleSearchChange}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel id="status-filter-label">סטטוס</InputLabel>
-            <Select
-              labelId="status-filter-label"
-              value={filterOption}
-              label="סטטוס"
-              onChange={handleFilterChange}
-              startAdornment={<FilterIcon fontSize="small" sx={{ mr: 1 }} />}
-            >
-              <MenuItem value="all">הכל</MenuItem>
-              <MenuItem value="active">פעיל</MenuItem>
-              <MenuItem value="completed">הושלם</MenuItem>
-              <MenuItem value="upcoming">השבוע</MenuItem>
-              <MenuItem value="overdue">איחור</MenuItem>
-            </Select>
-          </FormControl>
+        // Apply category filter if provided
+        if (category && reminder.category !== category) {
+          return false;
+        }
+        
+        // Apply priority filter
+        if (filter !== 'all' && reminder.priority !== filter) {
+          return false;
+        }
+        
+        // Apply search query
+        if (searchQuery) {
+          const query = searchQuery.toLowerCase();
+          const matchesTitle = reminder.title.toLowerCase().includes(query);
+          const matchesDescription = reminder.description.toLowerCase().includes(query);
+          const matchesCategory = reminder.category.toLowerCase().includes(query);
+          const matchesTags = reminder.tags.some(tag => tag.toLowerCase().includes(query));
           
-          {availableCategories.length > 0 && (
-            <FormControl size="small" sx={{ minWidth: 120 }}>
-              <InputLabel id="category-filter-label">קטגוריה</InputLabel>
-              <Select
-                labelId="category-filter-label"
-                value={categoryFilter}
-                label="קטגוריה"
-                onChange={handleCategoryFilterChange}
-              >
-                <MenuItem value="all">כל הקטגוריות</MenuItem>
-                {availableCategories.map(category => (
-                  <MenuItem key={category} value={category}>{category}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          )}
-        </Stack>
+          return matchesTitle || matchesDescription || matchesCategory || matchesTags;
+        }
+        
+        return true;
+      })
+      .sort((a, b) => {
+        // Sort based on criteria
+        switch (sortBy) {
+          case 'dueDate':
+            // Sort by due date (null values last)
+            if (!a.dueDate && !b.dueDate) return 0;
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+            
+          case 'priority':
+            // Sort by priority (high > medium > low)
+            const priorityOrder = { high: 0, medium: 1, low: 2 };
+            return priorityOrder[a.priority] - priorityOrder[b.priority];
+            
+          case 'createdAt':
+            // Sort by creation date (newest first)
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            
+          default:
+            return 0;
+        }
+      });
+  }, [reminders, showCompleted, category, filter, searchQuery, sortBy]);
+  
+  // Limit the number of shown reminders if maxItems is set
+  const displayedReminders = maxItems ? filteredReminders.slice(0, maxItems) : filteredReminders;
+  
+  // Handle filter change
+  const handleFilterChange = (event: SelectChangeEvent) => {
+    setFilter(event.target.value);
+  };
+  
+  // Handle sort change
+  const handleSortChange = (event: SelectChangeEvent) => {
+    setSortBy(event.target.value);
+  };
+  
+  // Render filter menu
+  const handleFilterMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setFilterAnchorEl(event.currentTarget);
+    setOpenFilterMenu(true);
+  };
+  
+  const handleFilterMenuClose = () => {
+    setFilterAnchorEl(null);
+    setOpenFilterMenu(false);
+  };
+  
+  // If loading, show loading spinner
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  // If no reminders match current filters
+  if (displayedReminders.length === 0) {
+    return (
+      <Paper elevation={3} sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="h6" color="textSecondary">
+          לא נמצאו תזכורות
+        </Typography>
+        {onAddReminder && (
+          <Button 
+            variant="contained" 
+            color="primary" 
+            onClick={onAddReminder}
+            sx={{ mt: 2 }}
+          >
+            צור תזכורת חדשה
+          </Button>
+        )}
       </Paper>
-
-      {/* Reminders List */}
-      {filteredReminders.length > 0 ? (
-        <Paper elevation={3}>
-          <List>
-            {filteredReminders.map((reminder, index) => (
-              <React.Fragment key={reminder.id}>
-                {index > 0 && <Divider />}
-                <ListItem
-                  secondaryAction={
-                    <Stack direction="row" spacing={1}>
-                      <IconButton edge="end" onClick={() => handleEdit(reminder)}>
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton edge="end" onClick={() => handleDelete(reminder.id)}>
-                        <DeleteIcon />
-                      </IconButton>
-                    </Stack>
-                  }
-                  sx={{
-                    bgcolor: reminder.completed ? 'rgba(0, 0, 0, 0.04)' : 'transparent',
-                    textDecoration: reminder.completed ? 'line-through' : 'none',
-                    opacity: reminder.completed ? 0.7 : 1,
-                    p: 2,
-                  }}
+    );
+  }
+  
+  return (
+    <Box sx={{ width: '100%' }}>
+      {/* Filters area */}
+      {!simpleView && (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: isMobile ? 'column' : 'row',
+            justifyContent: 'space-between', 
+            alignItems: isMobile ? 'stretch' : 'center',
+            mb: 2,
+            gap: 2
+          }}
+        >
+          {/* Filter button for mobile */}
+          {isMobile && (
+            <Button 
+              startIcon={<FilterListIcon />}
+              variant="outlined"
+              onClick={handleFilterMenuOpen}
+              fullWidth
+            >
+              מסננים וסידור
+            </Button>
+          )}
+          
+          {/* Regular filters for desktop */}
+          {!isMobile && (
+            <>
+              <FormControl size="small" variant="outlined" sx={{ minWidth: 120 }}>
+                <InputLabel id="priority-filter-label">עדיפות</InputLabel>
+                <Select
+                  labelId="priority-filter-label"
+                  id="priority-filter"
+                  value={filter}
+                  onChange={handleFilterChange}
+                  label="עדיפות"
                 >
-                  <IconButton 
-                    onClick={() => handleToggleComplete(reminder.id)}
-                    sx={{ mr: 2, color: reminder.completed ? 'success.main' : 'text.disabled' }}
-                  >
-                    <CheckCircleIcon />
-                  </IconButton>
+                  <MenuItem value="all">הכל</MenuItem>
+                  <MenuItem value="high">גבוהה</MenuItem>
+                  <MenuItem value="medium">בינונית</MenuItem>
+                  <MenuItem value="low">נמוכה</MenuItem>
+                </Select>
+              </FormControl>
+              
+              <FormControl size="small" variant="outlined" sx={{ minWidth: 120 }}>
+                <InputLabel id="sort-by-label">מיין לפי</InputLabel>
+                <Select
+                  labelId="sort-by-label"
+                  id="sort-by"
+                  value={sortBy}
+                  onChange={handleSortChange}
+                  label="מיין לפי"
+                >
+                  <MenuItem value="dueDate">תאריך יעד</MenuItem>
+                  <MenuItem value="priority">עדיפות</MenuItem>
+                  <MenuItem value="createdAt">תאריך יצירה</MenuItem>
+                </Select>
+              </FormControl>
+              
+              {showCompleted && (
+                <Chip 
+                  icon={<CheckCircleIcon />} 
+                  label="כולל הושלמו" 
+                  color="success" 
+                  variant="outlined" 
+                  sx={{ ml: 1 }}
+                />
+              )}
+            </>
+          )}
+          
+          {/* Filter menu (for mobile) */}
+          <Menu
+            anchorEl={filterAnchorEl}
+            open={openFilterMenu}
+            onClose={handleFilterMenuClose}
+          >
+            <MenuItem>
+              <FormControl fullWidth size="small" variant="outlined">
+                <InputLabel id="priority-filter-label-mobile">עדיפות</InputLabel>
+                <Select
+                  labelId="priority-filter-label-mobile"
+                  value={filter}
+                  onChange={handleFilterChange}
+                  label="עדיפות"
+                >
+                  <MenuItem value="all">הכל</MenuItem>
+                  <MenuItem value="high">גבוהה</MenuItem>
+                  <MenuItem value="medium">בינונית</MenuItem>
+                  <MenuItem value="low">נמוכה</MenuItem>
+                </Select>
+              </FormControl>
+            </MenuItem>
+            
+            <MenuItem>
+              <FormControl fullWidth size="small" variant="outlined">
+                <InputLabel id="sort-by-label-mobile">מיין לפי</InputLabel>
+                <Select
+                  labelId="sort-by-label-mobile"
+                  value={sortBy}
+                  onChange={handleSortChange}
+                  label="מיין לפי"
+                >
+                  <MenuItem value="dueDate">תאריך יעד</MenuItem>
+                  <MenuItem value="priority">עדיפות</MenuItem>
+                  <MenuItem value="createdAt">תאריך יצירה</MenuItem>
+                </Select>
+              </FormControl>
+            </MenuItem>
+          </Menu>
+          
+          {!isMobile && onAddReminder && (
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={onAddReminder}
+            >
+              הוסף תזכורת
+            </Button>
+          )}
+        </Box>
+      )}
+      
+      {/* Reminders list */}
+      <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+        {displayedReminders.map((reminder, index) => {
+          const isReminderOverdue = isOverdue(reminder);
+          const dueText = getDueText(reminder);
+          
+          return (
+            <React.Fragment key={reminder.id}>
+              {index > 0 && <Divider component="li" />}
+              <ListItem 
+                alignItems="flex-start"
+                sx={{ 
+                  opacity: reminder.completed ? 0.7 : 1,
+                  bgcolor: isReminderOverdue && !reminder.completed ? 'error.soft' : 'inherit',
+                  transition: 'background-color 0.3s',
+                  '&:hover': {
+                    bgcolor: theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.08)' 
+                      : 'rgba(0, 0, 0, 0.04)',
+                  }
+                }}
+                secondaryAction={
+                  <Box>
+                    <IconButton 
+                      edge="end" 
+                      aria-label="toggle-complete"
+                      onClick={() => handleToggleComplete(reminder.id, reminder.completed)}
+                      color={reminder.completed ? 'success' : 'default'}
+                    >
+                      {reminder.completed 
+                        ? <CheckCircleIcon /> 
+                        : <CheckCircleOutlineIcon />}
+                    </IconButton>
+                    
+                    {!simpleView && (
+                      <IconButton 
+                        edge="end" 
+                        aria-label="more" 
+                        onClick={(e) => handleMenuOpen(e, reminder.id)}
+                      >
+                        <MoreVertIcon />
+                      </IconButton>
+                    )}
+                  </Box>
+                }
+              >
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
+                  {/* Priority indicator */}
+                  <Tooltip title={`עדיפות ${reminder.priority === 'high' ? 'גבוהה' : reminder.priority === 'medium' ? 'בינונית' : 'נמוכה'}`}>
+                    <FlagIcon 
+                      sx={{ 
+                        mr: 1, 
+                        color: ReminderPriorityColors[reminder.priority],
+                        opacity: reminder.completed ? 0.5 : 1
+                      }} 
+                    />
+                  </Tooltip>
                   
                   <ListItemText
                     primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                        <Typography 
-                          variant="subtitle1" 
-                          fontWeight={500}
-                          sx={{ 
-                            textDecoration: reminder.completed ? 'line-through' : 'none',
-                            opacity: reminder.completed ? 0.7 : 1,
-                          }}
-                        >
-                          {reminder.title}
-                        </Typography>
-                        
-                        <Chip 
-                          size="small" 
-                          color={getPriorityColor(reminder.priority)} 
-                          icon={<FlagIcon fontSize="small" />} 
-                          label={reminder.priority} 
-                          sx={{ ml: 1 }}
-                        />
-                        
-                        {reminder.category && (
-                          <Chip size="small" label={reminder.category} />
-                        )}
-                        
-                        {reminder.recurring && (
-                          <Chip 
-                            size="small" 
-                            color="info" 
-                            label={reminder.recurringPattern} 
-                          />
-                        )}
-                      </Box>
+                      <Typography
+                        variant="subtitle1"
+                        component="div"
+                        sx={{
+                          fontWeight: isReminderOverdue && !reminder.completed ? 'bold' : 'normal',
+                          textDecoration: reminder.completed ? 'line-through' : 'none',
+                          color: reminder.completed ? 'text.secondary' : 'text.primary',
+                        }}
+                      >
+                        {reminder.title}
+                      </Typography>
                     }
                     secondary={
-                      <Box sx={{ mt: 1 }}>
-                        {reminder.description && (
-                          <Typography 
-                            variant="body2" 
+                      <React.Fragment>
+                        {!simpleView && (
+                          <Typography
+                            variant="body2"
                             color="text.secondary"
-                            sx={{ mb: 1, opacity: reminder.completed ? 0.7 : 1 }}
+                            component="div"
+                            sx={{ 
+                              mb: 1,
+                              display: '-webkit-box',
+                              WebkitBoxOrient: 'vertical',
+                              WebkitLineClamp: 2,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}
                           >
                             {reminder.description}
                           </Typography>
                         )}
                         
-                        {reminder.dueDate && (
-                          <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                            <AccessTimeIcon 
-                              fontSize="small" 
-                              sx={{ 
-                                mr: 1, 
-                                color: isOverdue(reminder.dueDate, reminder.completed) 
-                                  ? 'error.main' 
-                                  : isDueToday(reminder.dueDate) 
-                                    ? 'warning.main' 
-                                    : 'action.active'
-                              }} 
+                        <Box 
+                          display="flex" 
+                          flexDirection={isMobile ? 'column' : 'row'}
+                          alignItems={isMobile ? 'flex-start' : 'center'}
+                          gap={1}
+                          mt={1}
+                        >
+                          {/* Category */}
+                          <Chip 
+                            label={reminder.category} 
+                            size="small" 
+                            variant="outlined"
+                          />
+                          
+                          {/* Due date indicator */}
+                          {reminder.dueDate && (
+                            <Chip
+                              icon={<ScheduleIcon />}
+                              label={dueText}
+                              size="small"
+                              color={isReminderOverdue && !reminder.completed ? 'error' : 'default'}
+                              variant={isReminderOverdue && !reminder.completed ? 'filled' : 'outlined'}
                             />
-                            <Typography 
-                              variant="caption"
-                              sx={{ 
-                                color: isOverdue(reminder.dueDate, reminder.completed) 
-                                  ? 'error.main' 
-                                  : isDueToday(reminder.dueDate) 
-                                    ? 'warning.main' 
-                                    : 'text.secondary'
-                              }}
-                            >
-                              {isDueToday(reminder.dueDate) ? 'היום' : formatDueDate(reminder.dueDate)}
-                              {isOverdue(reminder.dueDate, reminder.completed) && ' (באיחור)'}
-                            </Typography>
-                          </Box>
-                        )}
-                      </Box>
+                          )}
+                          
+                          {/* Recurring indicator */}
+                          {reminder.recurring && (
+                            <Chip
+                              icon={<RefreshIcon />}
+                              label={`חוזר: ${
+                                reminder.recurringPattern === 'daily' ? 'יומי' :
+                                reminder.recurringPattern === 'weekly' ? 'שבועי' :
+                                reminder.recurringPattern === 'biweekly' ? 'דו-שבועי' :
+                                reminder.recurringPattern === 'monthly' ? 'חודשי' : 'שנתי'
+                              }`}
+                              size="small"
+                              color="info"
+                              variant="outlined"
+                            />
+                          )}
+                          
+                          {/* Tags (only show first in simple view) */}
+                          {reminder.tags.length > 0 && (
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: isMobile ? 1 : 0 }}>
+                              {(simpleView ? reminder.tags.slice(0, 1) : reminder.tags).map((tag) => (
+                                <Chip
+                                  key={tag}
+                                  icon={<TagIcon fontSize="small" />}
+                                  label={tag}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ fontSize: '0.7rem' }}
+                                />
+                              ))}
+                              {simpleView && reminder.tags.length > 1 && (
+                                <Chip
+                                  label={`+${reminder.tags.length - 1}`}
+                                  size="small"
+                                  variant="outlined"
+                                  sx={{ fontSize: '0.7rem' }}
+                                />
+                              )}
+                            </Box>
+                          )}
+                        </Box>
+                      </React.Fragment>
                     }
                   />
-                </ListItem>
-              </React.Fragment>
-            ))}
-          </List>
-        </Paper>
-      ) : (
-        <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="textSecondary">
-            {searchTerm || filterOption !== 'all' || categoryFilter !== 'all'
-              ? 'לא נמצאו תזכורות התואמות לחיפוש או הפילטר שלך'
-              : 'אין תזכורות עדיין. לחץ על "תזכורת חדשה" כדי להתחיל'}
-          </Typography>
-        </Paper>
-      )}
-
-      {isEditDialogOpen && selectedReminder && (
-        <ReminderForm
-          open={isEditDialogOpen}
-          onClose={handleDialogClose}
-          reminder={selectedReminder}
-        />
+                </Box>
+              </ListItem>
+            </React.Fragment>
+          );
+        })}
+      </List>
+      
+      {/* Context menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem onClick={handleEdit}>
+          <EditIcon fontSize="small" sx={{ mr: 1 }} />
+          ערוך
+        </MenuItem>
+        <MenuItem onClick={handleDeleteClick}>
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+          מחק
+        </MenuItem>
+      </Menu>
+      
+      {/* Confirm delete dialog */}
+      <Dialog
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+      >
+        <DialogTitle>מחיקת תזכורת</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            האם אתה בטוח שברצונך למחוק את התזכורת "{reminderToDelete?.title}"?
+            פעולה זו לא ניתנת לביטול.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDeleteOpen(false)}>בטל</Button>
+          <Button onClick={handleConfirmDelete} color="error" autoFocus>
+            מחק
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Mobile add button at bottom */}
+      {isMobile && onAddReminder && (
+        <Box 
+          sx={{ 
+            position: 'fixed', 
+            bottom: 16, 
+            right: 16, 
+            zIndex: 1000 
+          }}
+        >
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={onAddReminder}
+            sx={{ 
+              borderRadius: '50%',
+              minWidth: '56px',
+              width: '56px',
+              height: '56px',
+              p: 0,
+              boxShadow: 3
+            }}
+          >
+            +
+          </Button>
+        </Box>
       )}
     </Box>
   );
