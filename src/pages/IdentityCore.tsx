@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Edit, Check, ArrowRight, Lightbulb, Star, Sparkles } from 'lucide-react';
 import NeumorphCard from '@/components/NeumorphCard';
@@ -12,65 +11,75 @@ interface IdentityPair {
   current: string;
   future: string;
 }
-
 const IdentityCore = () => {
   // Identity state
-  const [identities, setIdentities] = useState<IdentityPair[]>([
-    { id: 1, current: "מנהלת כל פרט בעצמי", future: "מנהיגה שמשחררת ומאצילה" },
-    { id: 2, current: "רואה בעיות וחוששת", future: "רואה הזדמנויות ופועלת" },
-    { id: 3, current: "מבזבזת זמן על פרטים קטנים", future: "ממוקדת בערך הגבוה ביותר" }
-  ]);
-  
+  const [identities, setIdentities] = useState<IdentityPair[]>([{
+    id: 1,
+    current: "מנהלת כל פרט בעצמי",
+    future: "מנהיגה שמשחררת ומאצילה"
+  }, {
+    id: 2,
+    current: "רואה בעיות וחוששת",
+    future: "רואה הזדמנויות ופועלת"
+  }, {
+    id: 3,
+    current: "מבזבזת זמן על פרטים קטנים",
+    future: "ממוקדת בערך הגבוה ביותר"
+  }]);
+
   // Editable affirmation state
   const [affirmation, setAffirmation] = useState("אני מובילה את החזון שלי דרך אסטרטגיה ברורה ויצירת ערך עבור אחרים.");
   const [editingAffirmation, setEditingAffirmation] = useState(false);
-  
+
   // Practice streak data
   const [streak, setStreak] = useState(14); // Days
-  
+
   // Daily practice reflection state
   const [dailyReflection, setDailyReflection] = useState("");
-  
+
   // Add new identity pair
   const addIdentityPair = () => {
     const newId = identities.length ? Math.max(...identities.map(id => id.id)) + 1 : 1;
-    setIdentities([...identities, { id: newId, current: "", future: "" }]);
+    setIdentities([...identities, {
+      id: newId,
+      current: "",
+      future: ""
+    }]);
   };
-  
+
   // Update identity pair
   const updateIdentity = (id: number, field: 'current' | 'future', value: string) => {
-    setIdentities(identities.map(item => 
-      item.id === id ? { ...item, [field]: value } : item
-    ));
+    setIdentities(identities.map(item => item.id === id ? {
+      ...item,
+      [field]: value
+    } : item));
   };
-  
+
   // Delete identity pair
   const deleteIdentity = (id: number) => {
     setIdentities(identities.filter(item => item.id !== id));
   };
-  
+
   // Generate streak data for visualization
   const generateStreakData = () => {
     const days = 30; // Show last 30 days
     const data = [];
-    
     for (let i = 0; i < days; i++) {
       // For demonstration, we'll show the streak as consistent for the streak days
       // and then some random practice before that
       const practiced = i < streak || Math.random() > 0.6;
-      data.push({ day: days - i, practiced });
+      data.push({
+        day: days - i,
+        practiced
+      });
     }
-    
     return data;
   };
-  
   const streakData = generateStreakData();
-
-  return (
-    <div className="space-y-8">
+  return <div className="space-y-8">
       <header className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-bell-foreground">ליבת זהות</h1>
+          <h1 className="text-3xl text-bell-foreground font-medium">ליבת זהות</h1>
           <p className="text-bell-muted">חיזוק זהות ניהולית וחיבור למהות</p>
         </div>
       </header>
@@ -82,20 +91,13 @@ const IdentityCore = () => {
             <h3 className="text-lg font-semibold mb-4 text-bell-foreground">תהליך זהות: מהיום למחר</h3>
             
             <div className="space-y-6">
-              {identities.map(item => (
-                <div key={item.id} className="p-5 neumorph-inner rounded-xl">
+              {identities.map(item => <div key={item.id} className="p-5 neumorph-inner rounded-xl">
                   <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
                     <div className="md:col-span-2">
                       <Label htmlFor={`current-${item.id}`} className="block mb-2 text-sm text-bell-muted">
                         זהות נוכחית
                       </Label>
-                      <Input
-                        id={`current-${item.id}`}
-                        value={item.current}
-                        onChange={(e) => updateIdentity(item.id, 'current', e.target.value)}
-                        placeholder="מה הדפוס הנוכחי שלי..."
-                        className="bell-input"
-                      />
+                      <Input id={`current-${item.id}`} value={item.current} onChange={e => updateIdentity(item.id, 'current', e.target.value)} placeholder="מה הדפוס הנוכחי שלי..." className="bell-input" />
                     </div>
                     
                     <div className="flex justify-center">
@@ -108,39 +110,28 @@ const IdentityCore = () => {
                       <Label htmlFor={`future-${item.id}`} className="block mb-2 text-sm text-bell-muted">
                         זהות בבניה
                       </Label>
-                      <Input
-                        id={`future-${item.id}`}
-                        value={item.future}
-                        onChange={(e) => updateIdentity(item.id, 'future', e.target.value)}
-                        placeholder="מי אני רוצה להיות..."
-                        className="bell-input"
-                      />
+                      <Input id={`future-${item.id}`} value={item.future} onChange={e => updateIdentity(item.id, 'future', e.target.value)} placeholder="מי אני רוצה להיות..." className="bell-input" />
                     </div>
                   </div>
                   
                   <div className="flex justify-end mt-4">
-                    <button 
-                      onClick={() => deleteIdentity(item.id)}
-                      className="text-bell-muted hover:text-bell-accent text-sm"
-                    >
+                    <button onClick={() => deleteIdentity(item.id)} className="text-bell-muted hover:text-bell-accent text-sm">
                       הסר
                     </button>
                   </div>
-                </div>
-              ))}
+                </div>)}
               
               <div className="flex justify-center">
-                <NeumorphButton
-                  variant="outlined"
-                  onClick={addIdentityPair}
-                >
+                <NeumorphButton variant="outlined" onClick={addIdentityPair}>
                   הוסף זהות חדשה
                 </NeumorphButton>
               </div>
             </div>
           </NeumorphCard>
           
-          <NeumorphCard className="animate-fade-in" style={{ animationDelay: '0.1s' }}>
+          <NeumorphCard className="animate-fade-in" style={{
+          animationDelay: '0.1s'
+        }}>
             <h3 className="text-lg font-semibold mb-4 text-bell-foreground">שאלת רפלקציה יומית</h3>
             
             <div className="p-5 neumorph-inner rounded-xl">
@@ -148,18 +139,10 @@ const IdentityCore = () => {
                 איך אני מתגלמת כאישה הזו היום?
               </p>
               
-              <textarea
-                value={dailyReflection}
-                onChange={(e) => setDailyReflection(e.target.value)}
-                placeholder="כתבי את התשובה שלך כאן..."
-                className="bell-input w-full h-32 resize-none"
-              ></textarea>
+              <textarea value={dailyReflection} onChange={e => setDailyReflection(e.target.value)} placeholder="כתבי את התשובה שלך כאן..." className="bell-input w-full h-32 resize-none"></textarea>
               
               <div className="flex justify-end mt-4">
-                <NeumorphButton 
-                  variant="primary"
-                  icon={<Check size={16} />}
-                >
+                <NeumorphButton variant="primary" icon={<Check size={16} />}>
                   שמור רפלקציה
                 </NeumorphButton>
               </div>
@@ -169,39 +152,26 @@ const IdentityCore = () => {
         
         {/* Right column */}
         <div className="space-y-8">
-          <NeumorphCard className="animate-fade-in" style={{ animationDelay: '0.2s' }}>
+          <NeumorphCard className="animate-fade-in" style={{
+          animationDelay: '0.2s'
+        }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-bell-foreground">אפירמציה</h3>
-              <button 
-                onClick={() => setEditingAffirmation(!editingAffirmation)}
-                className="text-bell-muted hover:text-bell-primary"
-              >
+              <button onClick={() => setEditingAffirmation(!editingAffirmation)} className="text-bell-muted hover:text-bell-primary">
                 <Edit size={18} />
               </button>
             </div>
             
             <div className="p-5 neumorph-inner rounded-xl">
-              {editingAffirmation ? (
-                <div className="space-y-4">
-                  <textarea
-                    value={affirmation}
-                    onChange={(e) => setAffirmation(e.target.value)}
-                    className="bell-input w-full h-24 resize-none"
-                  ></textarea>
+              {editingAffirmation ? <div className="space-y-4">
+                  <textarea value={affirmation} onChange={e => setAffirmation(e.target.value)} className="bell-input w-full h-24 resize-none"></textarea>
                   
                   <div className="flex justify-end">
-                    <NeumorphButton 
-                      variant="primary" 
-                      size="sm"
-                      icon={<Check size={14} />}
-                      onClick={() => setEditingAffirmation(false)}
-                    >
+                    <NeumorphButton variant="primary" size="sm" icon={<Check size={14} />} onClick={() => setEditingAffirmation(false)}>
                       שמור
                     </NeumorphButton>
                   </div>
-                </div>
-              ) : (
-                <div>
+                </div> : <div>
                   <p className="text-xl text-center font-medium text-bell-primary leading-relaxed">
                     "{affirmation}"
                   </p>
@@ -211,12 +181,13 @@ const IdentityCore = () => {
                       שנן
                     </NeumorphButton>
                   </div>
-                </div>
-              )}
+                </div>}
             </div>
           </NeumorphCard>
           
-          <NeumorphCard className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
+          <NeumorphCard className="animate-fade-in" style={{
+          animationDelay: '0.3s'
+        }}>
             <div className="flex items-center gap-2 mb-4">
               <Sparkles size={18} className="text-amber-400" />
               <h3 className="text-lg font-semibold text-bell-foreground">רצף תרגול זהות</h3>
@@ -234,13 +205,7 @@ const IdentityCore = () => {
               </div>
               
               <div className="grid grid-cols-6 gap-1 mt-4">
-                {streakData.map((day, index) => (
-                  <div 
-                    key={index}
-                    className={`h-6 rounded ${day.practiced ? 'bg-bell-primary' : 'bg-bell-subtle'}`}
-                    title={`יום ${day.day}: ${day.practiced ? 'תורגל' : 'לא תורגל'}`}
-                  ></div>
-                ))}
+                {streakData.map((day, index) => <div key={index} className={`h-6 rounded ${day.practiced ? 'bg-bell-primary' : 'bg-bell-subtle'}`} title={`יום ${day.day}: ${day.practiced ? 'תורגל' : 'לא תורגל'}`}></div>)}
               </div>
               
               <div className="flex justify-between text-xs text-bell-muted mt-1">
@@ -250,7 +215,9 @@ const IdentityCore = () => {
             </div>
           </NeumorphCard>
           
-          <NeumorphCard className="animate-fade-in" style={{ animationDelay: '0.4s' }}>
+          <NeumorphCard className="animate-fade-in" style={{
+          animationDelay: '0.4s'
+        }}>
             <div className="flex items-center gap-2 mb-4">
               <Lightbulb size={18} className="text-amber-400" />
               <h3 className="text-lg font-semibold text-bell-foreground">תובנות זהות</h3>
@@ -287,8 +254,6 @@ const IdentityCore = () => {
           </NeumorphCard>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default IdentityCore;
