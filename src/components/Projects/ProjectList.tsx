@@ -1,563 +1,499 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
-  Paper,
-  Grid,
+  Button,
   Card,
   CardContent,
   CardActions,
-  IconButton,
+  Grid,
   Chip,
-  Button,
+  LinearProgress,
   TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  MenuItem,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  LinearProgress,
-  Divider,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Tooltip,
-  InputAdornment,
+  CircularProgress
 } from '@mui/material';
 import {
   Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Check as CheckIcon,
   Search as SearchIcon,
+  Delete as DeleteIcon,
   Sort as SortIcon,
-  FilterList as FilterIcon,
+  Edit as EditIcon,
+  Check as CheckIcon,
+  FilterList as FilterListIcon
 } from '@mui/icons-material';
-import { Project, ProjectStatus } from '../../types/Project';
 import { ProjectService } from '../../services/ProjectService';
-
-const projectService = new ProjectService();
-
-interface FilterOptions {
-  status: ProjectStatus | 'all';
-  searchTerm: string;
-}
+import { Project } from '../../types/Project';
+import { formatDate } from '../../utils/dateUtils';
 
 const ProjectList: React.FC = () => {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isUpdateProgressDialogOpen, setIsUpdateProgressDialogOpen] = useState(false);
-  const [newProgress, setNewProgress] = useState(0);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    status: 'all',
-    searchTerm: '',
-  });
-  const [sortOption, setSortOption] = useState<'name' | 'dueDate' | 'progress'>('dueDate');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
+  // Filter and sort states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('הכל');
+  const [sortBy, setSortBy] = useState<string>('dueDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Create/Edit Project dialog
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  
+  // Delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
 
-  const [formValues, setFormValues] = useState<Omit<Project, 'id' | 'createdAt'>>({
-    name: '',
-    description: '',
-    status: 'לא התחיל',
-    progress: 0,
-    dueDate: '',
-    milestones: [],
-  });
+  const projectService = new ProjectService();
 
-  // Load projects on component mount
   useEffect(() => {
     loadProjects();
   }, []);
 
-  // Apply filters and sorting whenever projects or filter options change
   useEffect(() => {
-    applyFiltersAndSort();
-  }, [projects, filterOptions, sortOption]);
+    filterAndSortProjects();
+  }, [projects, searchQuery, statusFilter, sortBy, sortDirection]);
 
   const loadProjects = async () => {
     try {
-      const allProjects = await projectService.getAllProjects();
-      setProjects(allProjects);
-    } catch (error) {
-      console.error('Error loading projects:', error);
+      setLoading(true);
+      const projectsData = await projectService.getProjects();
+      setProjects(projectsData);
+    } catch (err) {
+      setError('שגיאה בטעינת הפרויקטים');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const applyFiltersAndSort = () => {
+  const filterAndSortProjects = () => {
     let filtered = [...projects];
-
-    // Apply status filter
-    if (filterOptions.status !== 'all') {
-      filtered = filtered.filter(project => project.status === filterOptions.status);
-    }
-
-    // Apply search term filter
-    if (filterOptions.searchTerm) {
-      const searchTerm = filterOptions.searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        project => 
-          project.name.toLowerCase().includes(searchTerm) || 
-          project.description.toLowerCase().includes(searchTerm)
+    
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(project => 
+        project.name.toLowerCase().includes(query) || 
+        project.description.toLowerCase().includes(query)
       );
     }
-
+    
+    // Apply status filter
+    if (statusFilter !== 'הכל') {
+      filtered = filtered.filter(project => project.status === statusFilter);
+    }
+    
     // Apply sorting
-    filtered.sort((a, b) => {
-      if (sortOption === 'name') {
-        return a.name.localeCompare(b.name);
-      } else if (sortOption === 'dueDate') {
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-      } else if (sortOption === 'progress') {
-        return b.progress - a.progress;
+    filtered = filtered.sort((a, b) => {
+      let aValue: string | number | Date = a[sortBy as keyof Project];
+      let bValue: string | number | Date = b[sortBy as keyof Project];
+      
+      // Special handling for dates
+      if (sortBy === 'dueDate' || sortBy === 'createdAt') {
+        aValue = new Date(aValue as string);
+        bValue = new Date(bValue as string);
       }
-      return 0;
+      
+      if (sortDirection === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
     });
-
+    
     setFilteredProjects(filtered);
   };
 
-  const handleAddProject = () => {
-    setSelectedProject(null);
-    setFormValues({
-      name: '',
-      description: '',
-      status: 'לא התחיל',
-      progress: 0,
-      dueDate: '',
-      milestones: [],
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleEditProject = (project: Project) => {
-    setSelectedProject(project);
-    setFormValues({
-      name: project.name,
-      description: project.description,
-      status: project.status,
-      progress: project.progress,
-      dueDate: project.dueDate,
-      milestones: project.milestones,
-    });
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteProject = (project: Project) => {
-    setSelectedProject(project);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleUpdateProgress = (project: Project) => {
-    setSelectedProject(project);
-    setNewProgress(project.progress);
-    setIsUpdateProgressDialogOpen(true);
-  };
-
-  const handleCompleteProject = async (id: string) => {
-    try {
-      await projectService.completeProject(id);
-      loadProjects();
-    } catch (error) {
-      console.error('Error completing project:', error);
+  const handleOpenDialog = (project?: Project) => {
+    if (project) {
+      setIsEditing(true);
+      setCurrentProject(project);
+    } else {
+      setIsEditing(false);
+      setCurrentProject({
+        id: '',
+        name: '',
+        description: '',
+        status: 'לא התחיל',
+        progress: 0,
+        createdAt: new Date().toISOString().split('T')[0],
+        dueDate: '',
+        milestones: []
+      });
     }
+    setDialogOpen(true);
   };
 
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-  };
-
-  const handleDeleteDialogClose = () => {
-    setIsDeleteDialogOpen(false);
-  };
-
-  const handleUpdateProgressDialogClose = () => {
-    setIsUpdateProgressDialogOpen(false);
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
-    const { name, value } = e.target;
-    setFormValues({
-      ...formValues,
-      [name as string]: value,
-    });
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+    setCurrentProject(null);
   };
 
   const handleSaveProject = async () => {
+    if (!currentProject) return;
+    
     try {
-      if (selectedProject) {
-        // Update existing project
-        await projectService.updateProject({
-          ...selectedProject,
-          ...formValues,
-        });
+      if (isEditing) {
+        await projectService.updateProject(currentProject);
       } else {
-        // Create new project
-        await projectService.createProject(formValues);
+        await projectService.createProject(currentProject);
       }
-      setIsDialogOpen(false);
+      
       loadProjects();
-    } catch (error) {
-      console.error('Error saving project:', error);
+      handleCloseDialog();
+    } catch (err) {
+      console.error('Error saving project:', err);
     }
   };
 
-  const handleConfirmDelete = async () => {
-    if (selectedProject) {
-      try {
-        await projectService.deleteProject(selectedProject.id);
-        setIsDeleteDialogOpen(false);
-        loadProjects();
-      } catch (error) {
-        console.error('Error deleting project:', error);
-      }
+  const handleDeleteClick = (projectId: string) => {
+    setProjectToDelete(projectId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!projectToDelete) return;
+    
+    try {
+      await projectService.deleteProject(projectToDelete);
+      loadProjects();
+    } catch (err) {
+      console.error('Error deleting project:', err);
+    } finally {
+      setDeleteDialogOpen(false);
+      setProjectToDelete(null);
     }
   };
 
-  const handleConfirmProgressUpdate = async () => {
-    if (selectedProject) {
-      try {
-        await projectService.updateProgress(selectedProject.id, newProgress);
-        setIsUpdateProgressDialogOpen(false);
-        loadProjects();
-      } catch (error) {
-        console.error('Error updating progress:', error);
-      }
+  const handleCompleteProject = async (projectId: string) => {
+    try {
+      await projectService.completeProject(projectId);
+      loadProjects();
+    } catch (err) {
+      console.error('Error completing project:', err);
     }
   };
 
-  const getStatusColor = (status: ProjectStatus) => {
+  const getStatusColor = (status: string) => {
     switch (status) {
-      case 'לא התחיל':
-        return 'error';
-      case 'בתהליך':
-        return 'warning';
-      case 'הושלם':
-        return 'success';
-      default:
-        return 'default';
+      case 'לא התחיל': return 'info';
+      case 'בתהליך': return 'warning';
+      case 'הושלם': return 'success';
+      default: return 'default';
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('he-IL');
-  };
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '50vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography variant="h5" color="error">{error}</Typography>
+        <Button 
+          variant="outlined" 
+          onClick={loadProjects} 
+          sx={{ mt: 2 }}
+        >
+          נסה שוב
+        </Button>
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ py: 4, px: { xs: 2, md: 4 } }}>
-      <Typography variant="h4" component="h1" gutterBottom align="center">
-        ניהול פרויקטים
-      </Typography>
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">ניהול פרויקטים</Typography>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => handleOpenDialog()}
+        >
+          פרויקט חדש
+        </Button>
+      </Box>
 
-      {/* Filters and Actions */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={4}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="חיפוש פרויקטים..."
-              value={filterOptions.searchTerm}
-              onChange={(e) => setFilterOptions({ ...filterOptions, searchTerm: e.target.value })}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon />
-                  </InputAdornment>
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <FormControl fullWidth>
-              <InputLabel id="status-filter-label">סטטוס</InputLabel>
-              <Select
-                labelId="status-filter-label"
-                value={filterOptions.status}
-                label="סטטוס"
-                onChange={(e) => setFilterOptions({ ...filterOptions, status: e.target.value as ProjectStatus | 'all' })}
-              >
-                <MenuItem value="all">הכל</MenuItem>
-                <MenuItem value="לא התחיל">לא התחיל</MenuItem>
-                <MenuItem value="בתהליך">בתהליך</MenuItem>
-                <MenuItem value="הושלם">הושלם</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={3}>
-            <FormControl fullWidth>
-              <InputLabel id="sort-label">מיון לפי</InputLabel>
-              <Select
-                labelId="sort-label"
-                value={sortOption}
-                label="מיון לפי"
-                onChange={(e) => setSortOption(e.target.value as 'name' | 'dueDate' | 'progress')}
-                startAdornment={
-                  <InputAdornment position="start">
-                    <SortIcon />
-                  </InputAdornment>
-                }
-              >
-                <MenuItem value="name">שם</MenuItem>
-                <MenuItem value="dueDate">תאריך יעד</MenuItem>
-                <MenuItem value="progress">התקדמות</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} sm={2}>
-            <Button
-              fullWidth
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={handleAddProject}
-            >
-              פרויקט חדש
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
+      {/* Search and Filters */}
+      <Box sx={{ mb: 3, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+        <TextField
+          label="חיפוש"
+          variant="outlined"
+          size="small"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          InputProps={{
+            startAdornment: <SearchIcon sx={{ ml: 1, color: 'text.secondary' }} />,
+          }}
+          sx={{ flexGrow: 1, minWidth: '200px' }}
+        />
+        
+        <FormControl size="small" sx={{ minWidth: '150px' }}>
+          <InputLabel id="status-filter-label">סטטוס</InputLabel>
+          <Select
+            labelId="status-filter-label"
+            value={statusFilter}
+            label="סטטוס"
+            onChange={(e) => setStatusFilter(e.target.value)}
+            startAdornment={<FilterListIcon sx={{ ml: 1, color: 'text.secondary' }} />}
+          >
+            <MenuItem value="הכל">הכל</MenuItem>
+            <MenuItem value="לא התחיל">לא התחיל</MenuItem>
+            <MenuItem value="בתהליך">בתהליך</MenuItem>
+            <MenuItem value="הושלם">הושלם</MenuItem>
+          </Select>
+        </FormControl>
+        
+        <FormControl size="small" sx={{ minWidth: '150px' }}>
+          <InputLabel id="sort-by-label">מיון לפי</InputLabel>
+          <Select
+            labelId="sort-by-label"
+            value={sortBy}
+            label="מיון לפי"
+            onChange={(e) => setSortBy(e.target.value)}
+            startAdornment={<SortIcon sx={{ ml: 1, color: 'text.secondary' }} />}
+          >
+            <MenuItem value="name">שם</MenuItem>
+            <MenuItem value="dueDate">תאריך יעד</MenuItem>
+            <MenuItem value="createdAt">תאריך יצירה</MenuItem>
+            <MenuItem value="progress">התקדמות</MenuItem>
+          </Select>
+        </FormControl>
+        
+        <Tooltip title={sortDirection === 'asc' ? 'מיון עולה' : 'מיון יורד'}>
+          <IconButton onClick={() => setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')}>
+            <SortIcon sx={{ transform: sortDirection === 'desc' ? 'rotate(180deg)' : 'none' }} />
+          </IconButton>
+        </Tooltip>
+      </Box>
 
-      {/* Projects List */}
-      <Grid container spacing={3}>
-        {filteredProjects.length > 0 ? (
-          filteredProjects.map((project) => (
+      {filteredProjects.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 5 }}>
+          <Typography variant="h6" color="text.secondary">
+            לא נמצאו פרויקטים
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            נסה לשנות את מסנני החיפוש או הוסף פרויקט חדש
+          </Typography>
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {filteredProjects.map((project) => (
             <Grid item xs={12} sm={6} md={4} key={project.id}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                    <Typography variant="h6" component="h2" gutterBottom>
+              <Card
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    transform: 'translateY(-5px)',
+                    boxShadow: 6
+                  }
+                }}
+              >
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="h6" sx={{ mb: 1 }}>
                       {project.name}
                     </Typography>
-                    <Chip
-                      label={project.status}
-                      color={getStatusColor(project.status)}
+                    <Chip 
+                      label={project.status} 
                       size="small"
+                      color={getStatusColor(project.status) as any}
                     />
                   </Box>
                   
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2, minHeight: '40px' }}>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      mb: 2,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      minHeight: '4em'
+                    }}
+                  >
                     {project.description}
                   </Typography>
                   
-                  <Box sx={{ mb: 2 }}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
-                      <Typography variant="body2">התקדמות: {project.progress}%</Typography>
-                      <Typography variant="body2">
-                        תאריך יעד: {formatDate(project.dueDate)}
-                      </Typography>
-                    </Box>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={project.progress} 
-                      color={project.progress === 100 ? "success" : "primary"}
-                      sx={{ height: 8, borderRadius: 5 }}
-                    />
-                  </Box>
+                  <Typography variant="body2" sx={{ mb: 0.5 }}>
+                    תאריך יעד: {formatDate(project.dueDate)}
+                  </Typography>
                   
-                  {project.milestones && project.milestones.length > 0 && (
-                    <Box>
-                      <Typography variant="subtitle2" sx={{ mb: 1 }}>אבני דרך:</Typography>
-                      {project.milestones.map((milestone, index) => (
-                        <Chip
-                          key={index}
-                          label={milestone.name}
-                          size="small"
-                          color={milestone.completed ? "success" : "default"}
-                          sx={{ mr: 0.5, mb: 0.5 }}
-                        />
-                      ))}
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 2 }}>
+                    <Typography variant="body2" sx={{ mr: 1 }}>
+                      התקדמות:
+                    </Typography>
+                    <Box sx={{ width: '100%', mr: 1 }}>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={project.progress}
+                        color={
+                          project.progress === 100 
+                            ? 'success' 
+                            : project.progress > 0 
+                              ? 'warning' 
+                              : 'primary'
+                        }
+                      />
                     </Box>
-                  )}
+                    <Typography variant="body2">
+                      {project.progress}%
+                    </Typography>
+                  </Box>
                 </CardContent>
-                <Divider />
-                <CardActions sx={{ justifyContent: 'space-between' }}>
-                  <Box>
-                    <Tooltip title="ערוך פרויקט">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleEditProject(project)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="מחק פרויקט">
-                      <IconButton 
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeleteProject(project)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  <Box>
-                    <Tooltip title="עדכן התקדמות">
-                      <Button 
-                        size="small"
-                        variant="outlined"
-                        onClick={() => handleUpdateProgress(project)}
-                      >
-                        עדכן התקדמות
-                      </Button>
-                    </Tooltip>
-                    {project.status !== 'הושלם' && (
-                      <Tooltip title="סמן כהושלם">
-                        <IconButton
-                          size="small"
-                          color="success"
-                          onClick={() => handleCompleteProject(project.id)}
-                        >
-                          <CheckIcon />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Box>
+                
+                <CardActions sx={{ p: 2 }}>
+                  <Button 
+                    size="small" 
+                    variant="outlined"
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                    fullWidth
+                  >
+                    פרטים נוספים
+                  </Button>
+                  
+                  <IconButton 
+                    size="small"
+                    onClick={() => handleOpenDialog(project)}
+                    color="primary"
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                  
+                  <IconButton 
+                    size="small"
+                    onClick={() => handleCompleteProject(project.id)}
+                    color="success"
+                    disabled={project.status === 'הושלם'}
+                  >
+                    <CheckIcon fontSize="small" />
+                  </IconButton>
+                  
+                  <IconButton 
+                    size="small"
+                    onClick={() => handleDeleteClick(project.id)}
+                    color="error"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
                 </CardActions>
               </Card>
             </Grid>
-          ))
-        ) : (
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3, textAlign: 'center' }}>
-              <Typography variant="h6">לא נמצאו פרויקטים</Typography>
-              <Typography variant="body2" color="text.secondary">
-                נסה לשנות את הסינון או להוסיף פרויקט חדש
-              </Typography>
-            </Paper>
-          </Grid>
-        )}
-      </Grid>
+          ))}
+        </Grid>
+      )}
 
-      {/* Add/Edit Project Dialog */}
-      <Dialog open={isDialogOpen} onClose={handleDialogClose} maxWidth="md" fullWidth>
-        <DialogTitle>{selectedProject ? 'ערוך פרויקט' : 'הוסף פרויקט חדש'}</DialogTitle>
+      {/* Create/Edit Project Dialog */}
+      <Dialog 
+        open={dialogOpen} 
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>{isEditing ? 'עריכת פרויקט' : 'פרויקט חדש'}</DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+          {currentProject && (
+            <Box sx={{ mt: 2 }}>
               <TextField
                 fullWidth
-                name="name"
                 label="שם הפרויקט"
-                value={formValues.name}
-                onChange={handleInputChange}
+                value={currentProject.name}
+                onChange={(e) => setCurrentProject({ ...currentProject, name: e.target.value })}
                 required
+                sx={{ mb: 2 }}
               />
-            </Grid>
-            <Grid item xs={12}>
+              
               <TextField
                 fullWidth
-                name="description"
                 label="תיאור"
-                value={formValues.description}
-                onChange={handleInputChange}
+                value={currentProject.description}
+                onChange={(e) => setCurrentProject({ ...currentProject, description: e.target.value })}
                 multiline
-                rows={3}
+                rows={4}
+                sx={{ mb: 2 }}
               />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>סטטוס</InputLabel>
-                <Select
-                  name="status"
-                  value={formValues.status}
-                  label="סטטוס"
-                  onChange={handleInputChange}
-                >
-                  <MenuItem value="לא התחיל">לא התחיל</MenuItem>
-                  <MenuItem value="בתהליך">בתהליך</MenuItem>
-                  <MenuItem value="הושלם">הושלם</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                name="dueDate"
-                label="תאריך יעד"
-                type="date"
-                value={formValues.dueDate}
-                onChange={handleInputChange}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                name="progress"
-                label="התקדמות"
-                type="number"
-                value={formValues.progress}
-                onChange={handleInputChange}
-                InputProps={{ 
-                  endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                  inputProps: { min: 0, max: 100 }
-                }}
-              />
-            </Grid>
-          </Grid>
+              
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="תאריך יעד"
+                    type="date"
+                    value={currentProject.dueDate}
+                    onChange={(e) => setCurrentProject({ ...currentProject, dueDate: e.target.value })}
+                    InputLabelProps={{ shrink: true }}
+                    required
+                  />
+                </Grid>
+                
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>סטטוס</InputLabel>
+                    <Select
+                      value={currentProject.status}
+                      label="סטטוס"
+                      onChange={(e) => setCurrentProject({ ...currentProject, status: e.target.value })}
+                    >
+                      <MenuItem value="לא התחיל">לא התחיל</MenuItem>
+                      <MenuItem value="בתהליך">בתהליך</MenuItem>
+                      <MenuItem value="הושלם">הושלם</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDialogClose} color="inherit">
-            ביטול
-          </Button>
-          <Button onClick={handleSaveProject} color="primary" variant="contained">
-            שמור
+          <Button onClick={handleCloseDialog}>ביטול</Button>
+          <Button 
+            onClick={handleSaveProject}
+            variant="contained"
+            disabled={!currentProject?.name || !currentProject?.dueDate}
+          >
+            {isEditing ? 'עדכן' : 'צור פרויקט'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onClose={handleDeleteDialogClose}>
-        <DialogTitle>אישור מחיקה</DialogTitle>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>מחיקת פרויקט</DialogTitle>
         <DialogContent>
-          <Typography>
-            האם אתה בטוח שברצונך למחוק את הפרויקט "{selectedProject?.name}"?
-          </Typography>
+          האם את/ה בטוח/ה שברצונך למחוק את הפרויקט? פעולה זו אינה ניתנת לביטול.
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDeleteDialogClose} color="inherit">
-            ביטול
-          </Button>
-          <Button onClick={handleConfirmDelete} color="error" variant="contained">
+          <Button onClick={() => setDeleteDialogOpen(false)}>ביטול</Button>
+          <Button onClick={handleDeleteConfirm} variant="contained" color="error">
             מחק
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Update Progress Dialog */}
-      <Dialog open={isUpdateProgressDialogOpen} onClose={handleUpdateProgressDialogClose}>
-        <DialogTitle>עדכון התקדמות</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 2 }}>
-            <Typography variant="body1" gutterBottom>
-              פרויקט: {selectedProject?.name}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              התקדמות נוכחית: {selectedProject?.progress}%
-            </Typography>
-            <TextField
-              fullWidth
-              label="התקדמות חדשה"
-              type="number"
-              value={newProgress}
-              onChange={(e) => setNewProgress(parseInt(e.target.value))}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                inputProps: { min: 0, max: 100 }
-              }}
-              sx={{ mt: 2 }}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleUpdateProgressDialogClose} color="inherit">
-            ביטול
-          </Button>
-          <Button onClick={handleConfirmProgressUpdate} color="primary" variant="contained">
-            עדכן
           </Button>
         </DialogActions>
       </Dialog>
