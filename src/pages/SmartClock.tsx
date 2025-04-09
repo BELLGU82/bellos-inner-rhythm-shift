@@ -108,7 +108,7 @@ const SmartClock = () => {
       case 'task':
         return <Check size={16} className="text-bell-secondary" />;
       case 'recovery':
-        return;
+        return <AlarmClock size={16} className="text-green-500" />;
       case 'anchor':
         return <Calendar size={16} className="text-amber-500" />;
       default:
