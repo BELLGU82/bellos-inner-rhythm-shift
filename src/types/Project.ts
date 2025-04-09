@@ -1,18 +1,33 @@
-export type ProjectStatus = 'לא התחיל' | 'בתהליך' | 'הושלם';
+export interface Project {
+  id?: string;
+  name: string;
+  description: string;
+  status: 'לא התחיל' | 'בתהליך' | 'הושלם' | 'מושהה' | string;
+  progress: number;
+  createdAt: string;
+  dueDate?: string;
+  milestones: Milestone[];
+}
 
 export interface Milestone {
-  name: string;
+  id: string;
+  title: string;
+  description?: string;
   completed: boolean;
+  dueDate?: string;
+  createdAt: string;
+}
+
+export interface ProjectFormValues {
+  name: string;
+  description: string;
+  status: string;
+  progress: number;
   dueDate?: string;
 }
 
-export interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: ProjectStatus;
-  progress: number;
-  dueDate: string;
-  createdAt: string;
-  milestones: Milestone[];
+export interface MilestoneFormValues {
+  title: string;
+  description?: string;
+  dueDate?: string;
 }
