@@ -15,13 +15,8 @@ import Delegation from "./pages/Delegation";
 import BellRest from "./pages/BellRest";
 import IdentityCore from "./pages/IdentityCore";
 import PomodoroTimer from "./pages/PomodoroTimer";
-import DocumentsVault from "./pages/DocumentsVault";
-import CEORitual from "./pages/CEORitual";
-import Inbox from "./pages/Inbox";
-import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import LanguageToggle from "./components/LanguageToggle";
-import BellGPT from "./components/BellGPT";
 
 const queryClient = new QueryClient();
 
@@ -32,7 +27,6 @@ const App = () => (
         <Toaster />
         <Sonner />
         <LanguageToggle />
-        <BellGPT />
         <BrowserRouter>
           <Routes>
             <Route 
@@ -70,22 +64,6 @@ const App = () => (
             <Route 
               path="/pomodoro" 
               element={<Layout><PomodoroTimer /></Layout>} 
-            />
-            <Route 
-              path="/documents" 
-              element={<Layout><DocumentsVault /></Layout>} 
-            />
-            <Route 
-              path="/ritual" 
-              element={<Layout><CEORitual /></Layout>} 
-            />
-            <Route 
-              path="/inbox" 
-              element={<Layout><Inbox /></Layout>} 
-            />
-            <Route 
-              path="/settings" 
-              element={<Layout><Settings /></Layout>} 
             />
             <Route path="*" element={<NotFound />} />
           </Routes>
