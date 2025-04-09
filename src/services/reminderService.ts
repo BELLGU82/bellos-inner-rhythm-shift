@@ -1,398 +1,470 @@
 // src/services/reminderService.ts
-import { formatDistanceToNow } from 'date-fns';
-import { he } from 'date-fns/locale';
+import { v4 as uuidv4 } from 'uuid';
+import { Category } from '../types/categories';
+
+// Reminder interfaces
+export interface Notification {
+  id?: string;
+  time: string;
+  message: string;
+  triggered: boolean;
+}
 
 export interface Reminder {
   id: string;
   title: string;
   description: string;
   completed: boolean;
-  createdAt: Date;
-  dueDate: Date | null;
-  priority: 'low' | 'medium' | 'high';
+  completedAt?: string;
+  createdAt: string;
+  dueDate: string | null;
+  priority: 'high' | 'medium' | 'low';
   category: string;
   recurring: boolean;
   recurringPattern?: 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'yearly';
   tags: string[];
-  completedAt?: Date;
+  notifications?: Notification[];
 }
 
-// LocalStorage key
-const REMINDERS_STORAGE_KEY = 'bellInnerRhythmShift_reminders';
-
-// Helper functions
-const loadRemindersFromStorage = (): Reminder[] => {
-  try {
-    const storedData = localStorage.getItem(REMINDERS_STORAGE_KEY);
-    if (!storedData) return [];
-    
-    const parsedData = JSON.parse(storedData);
-    return parsedData.map((reminder: any) => ({
-      ...reminder,
-      createdAt: reminder.createdAt ? new Date(reminder.createdAt) : new Date(),
-      dueDate: reminder.dueDate ? new Date(reminder.dueDate) : null,
-      completedAt: reminder.completedAt ? new Date(reminder.completedAt) : undefined,
-    }));
-  } catch (error) {
-    console.error('Failed to load reminders from storage:', error);
-    return [];
-  }
+// Helper functions for localStorage
+const getRemindersFromStorage = (): Reminder[] => {
+  const remindersJson = localStorage.getItem('reminders');
+  return remindersJson ? JSON.parse(remindersJson) : [];
 };
 
-const saveRemindersToStorage = (reminders: Reminder[]) => {
-  try {
-    localStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(reminders));
-  } catch (error) {
-    console.error('Failed to save reminders to storage:', error);
-  }
-};
-
-// Event handlers for subscription
-type RemindersChangeHandler = (reminders: Reminder[]) => void;
-const changeHandlers: RemindersChangeHandler[] = [];
-
-const notifyHandlers = (reminders: Reminder[]) => {
-  changeHandlers.forEach(handler => handler(reminders));
-};
-
-// Subscription management
-export const subscribeToReminders = (handler: RemindersChangeHandler) => {
-  changeHandlers.push(handler);
-  // Initial call with current data
-  handler(loadRemindersFromStorage());
-  
-  // Return unsubscribe function
-  return () => {
-    const index = changeHandlers.indexOf(handler);
-    if (index !== -1) {
-      changeHandlers.splice(index, 1);
-    }
-  };
+const saveRemindersToStorage = (reminders: Reminder[]): void => {
+  localStorage.setItem('reminders', JSON.stringify(reminders));
 };
 
 // CRUD operations
 export const getAllReminders = (): Reminder[] => {
-  return loadRemindersFromStorage();
+  return getRemindersFromStorage();
 };
 
 export const getReminderById = (id: string): Reminder | undefined => {
-  const reminders = loadRemindersFromStorage();
+  const reminders = getRemindersFromStorage();
   return reminders.find(reminder => reminder.id === id);
 };
 
-export const addReminder = (reminder: Reminder): Reminder => {
-  const reminders = loadRemindersFromStorage();
+export const createReminder = (reminderData: Omit<Reminder, 'id' | 'createdAt'>): Reminder => {
+  const reminders = getRemindersFromStorage();
   
-  // Ensure it has a unique ID
-  if (!reminder.id) {
-    reminder.id = crypto.randomUUID();
-  }
+  const newReminder: Reminder = {
+    id: uuidv4(),
+    createdAt: new Date().toISOString(),
+    ...reminderData
+  };
   
-  // Set creation time if not provided
-  if (!reminder.createdAt) {
-    reminder.createdAt = new Date();
-  }
+  reminders.push(newReminder);
+  saveRemindersToStorage(reminders);
   
-  // Add new reminder
-  const updatedReminders = [...reminders, reminder];
-  saveRemindersToStorage(updatedReminders);
-  notifyHandlers(updatedReminders);
-  
-  // Schedule notification if it has a due date
-  if (reminder.dueDate) {
-    scheduleReminderNotification(reminder);
-  }
-  
-  return reminder;
+  return newReminder;
 };
 
 export const updateReminder = (updatedReminder: Reminder): Reminder => {
-  const reminders = loadRemindersFromStorage();
-  const index = reminders.findIndex(r => r.id === updatedReminder.id);
+  const reminders = getRemindersFromStorage();
   
-  if (index === -1) {
+  const reminderIndex = reminders.findIndex(reminder => reminder.id === updatedReminder.id);
+  
+  if (reminderIndex === -1) {
     throw new Error(`Reminder with id ${updatedReminder.id} not found`);
   }
   
-  // If marking as completed, set completedAt
-  if (updatedReminder.completed && !updatedReminder.completedAt) {
-    updatedReminder.completedAt = new Date();
-  }
-  
-  // If marking as not completed, remove completedAt
-  if (!updatedReminder.completed) {
-    delete updatedReminder.completedAt;
-  }
-  
-  // Update the reminder
-  const updatedReminders = [
-    ...reminders.slice(0, index),
-    updatedReminder,
-    ...reminders.slice(index + 1)
-  ];
-  saveRemindersToStorage(updatedReminders);
-  notifyHandlers(updatedReminders);
-  
-  // If reminder was updated and has a future due date, update notification
-  if (updatedReminder.dueDate && new Date(updatedReminder.dueDate) > new Date()) {
-    scheduleReminderNotification(updatedReminder);
-  }
+  reminders[reminderIndex] = updatedReminder;
+  saveRemindersToStorage(reminders);
   
   return updatedReminder;
 };
 
 export const deleteReminder = (id: string): void => {
-  const reminders = loadRemindersFromStorage();
-  const updatedReminders = reminders.filter(reminder => reminder.id !== id);
+  let reminders = getRemindersFromStorage();
   
-  if (updatedReminders.length === reminders.length) {
-    throw new Error(`Reminder with id ${id} not found`);
-  }
+  // Filter out the reminder with the given id
+  reminders = reminders.filter(reminder => reminder.id !== id);
   
-  saveRemindersToStorage(updatedReminders);
-  notifyHandlers(updatedReminders);
+  saveRemindersToStorage(reminders);
 };
 
-export const completeReminder = (id: string): Reminder => {
-  const reminders = loadRemindersFromStorage();
-  const index = reminders.findIndex(r => r.id === id);
+export const completeReminder = (id: string, completed: boolean = true): Reminder => {
+  const reminders = getRemindersFromStorage();
   
-  if (index === -1) {
+  const reminderIndex = reminders.findIndex(reminder => reminder.id === id);
+  
+  if (reminderIndex === -1) {
     throw new Error(`Reminder with id ${id} not found`);
   }
   
   const updatedReminder = {
-    ...reminders[index],
-    completed: true,
-    completedAt: new Date(),
+    ...reminders[reminderIndex],
+    completed,
+    completedAt: completed ? new Date().toISOString() : undefined
   };
   
-  // Handle recurring reminders when completed
-  if (updatedReminder.recurring && updatedReminder.recurringPattern && updatedReminder.dueDate) {
-    // Create the next occurrence
-    const nextOccurrence = createNextRecurringReminder(updatedReminder);
-    
-    // We update the completed reminder, then add the new occurrence
-    const updatedReminders = [
-      ...reminders.slice(0, index),
-      updatedReminder,
-      ...reminders.slice(index + 1),
-      nextOccurrence
-    ];
-    saveRemindersToStorage(updatedReminders);
-    notifyHandlers(updatedReminders);
-    
-    return updatedReminder;
-  } else {
-    // Regular non-recurring reminder completion
-    const updatedReminders = [
-      ...reminders.slice(0, index),
-      updatedReminder,
-      ...reminders.slice(index + 1)
-    ];
-    saveRemindersToStorage(updatedReminders);
-    notifyHandlers(updatedReminders);
-    
-    return updatedReminder;
-  }
-};
-
-// Utility functions
-export const isOverdue = (reminder: Reminder): boolean => {
-  if (!reminder.dueDate || reminder.completed) return false;
-  return new Date(reminder.dueDate) < new Date();
-};
-
-export const getDueText = (reminder: Reminder): string => {
-  if (!reminder.dueDate) return 'אין תאריך יעד';
+  reminders[reminderIndex] = updatedReminder;
+  saveRemindersToStorage(reminders);
   
-  try {
-    const dueDate = new Date(reminder.dueDate);
-    
-    if (reminder.completed) {
-      if (reminder.completedAt) {
-        const completedDate = new Date(reminder.completedAt);
-        const wasOverdue = completedDate > dueDate;
-        
-        if (wasOverdue) {
-          return `הושלם באיחור של ${formatDistanceToNow(dueDate, { locale: he, addSuffix: false })}`;
-        } else {
-          return `הושלם לפני ${formatDistanceToNow(completedDate, { locale: he, addSuffix: false })}`;
-        }
-      }
-      return 'הושלם';
-    }
-    
-    const now = new Date();
-    const isOverdueReminder = dueDate < now;
-    
-    if (isOverdueReminder) {
-      return `באיחור של ${formatDistanceToNow(dueDate, { locale: he, addSuffix: false })}`;
-    }
-    
-    return `נותרו ${formatDistanceToNow(dueDate, { locale: he, addSuffix: false })}`;
-  } catch (error) {
-    console.error('Error formatting due date', error);
-    return 'תאריך יעד לא תקין';
-  }
+  return updatedReminder;
 };
 
-export const getUpcomingReminders = (days = 7): Reminder[] => {
-  const reminders = loadRemindersFromStorage();
-  const now = new Date();
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() + days);
+// Filter and search functions
+export const searchReminders = (query: string): Reminder[] => {
+  if (!query) return getAllReminders();
+  
+  const reminders = getRemindersFromStorage();
+  const lowerCaseQuery = query.toLowerCase();
+  
+  return reminders.filter(reminder =>
+    reminder.title.toLowerCase().includes(lowerCaseQuery) ||
+    reminder.description.toLowerCase().includes(lowerCaseQuery) ||
+    reminder.tags.some(tag => tag.toLowerCase().includes(lowerCaseQuery))
+  );
+};
+
+export const filterRemindersByStatus = (completed: boolean): Reminder[] => {
+  const reminders = getRemindersFromStorage();
+  return reminders.filter(reminder => reminder.completed === completed);
+};
+
+export const filterRemindersByPriority = (priority: 'high' | 'medium' | 'low'): Reminder[] => {
+  const reminders = getRemindersFromStorage();
+  return reminders.filter(reminder => reminder.priority === priority);
+};
+
+export const filterRemindersByCategory = (category: string): Reminder[] => {
+  const reminders = getRemindersFromStorage();
+  return reminders.filter(reminder => reminder.category === category);
+};
+
+export const filterRemindersByDueDate = (fromDate: Date, toDate?: Date): Reminder[] => {
+  const reminders = getRemindersFromStorage().filter(reminder => reminder.dueDate);
   
   return reminders.filter(reminder => {
-    if (reminder.completed || !reminder.dueDate) return false;
+    if (!reminder.dueDate) return false;
+    
     const dueDate = new Date(reminder.dueDate);
-    return dueDate >= now && dueDate <= cutoff;
+    
+    if (toDate) {
+      return dueDate >= fromDate && dueDate <= toDate;
+    }
+    
+    return dueDate.getDate() === fromDate.getDate() &&
+           dueDate.getMonth() === fromDate.getMonth() &&
+           dueDate.getFullYear() === fromDate.getFullYear();
   });
 };
 
-// Reminder notifications
-const scheduleReminderNotification = (reminder: Reminder) => {
-  if (!reminder.dueDate || reminder.completed) return;
+export const getOverdueReminders = (): Reminder[] => {
+  const now = new Date();
+  const reminders = getRemindersFromStorage();
   
-  const dueDate = new Date(reminder.dueDate);
+  return reminders.filter(reminder => 
+    !reminder.completed && 
+    reminder.dueDate && 
+    new Date(reminder.dueDate) < now
+  );
+};
+
+export const getTodayReminders = (): Reminder[] => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  return filterRemindersByDueDate(today, tomorrow);
+};
+
+export const getUpcomingReminders = (days: number = 7): Reminder[] => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const futureDate = new Date(today);
+  futureDate.setDate(futureDate.getDate() + days);
+  
+  return filterRemindersByDueDate(today, futureDate);
+};
+
+// Category management
+export const getAllCategories = (): string[] => {
+  const categories = localStorage.getItem('reminderCategories');
+  
+  if (categories) {
+    return JSON.parse(categories);
+  }
+  
+  // Default categories
+  const defaultCategories = ['כללי', 'עבודה', 'אישי', 'משפחה', 'בריאות', 'קניות'];
+  localStorage.setItem('reminderCategories', JSON.stringify(defaultCategories));
+  
+  return defaultCategories;
+};
+
+export const addCategory = (category: string): string[] => {
+  const categories = getAllCategories();
+  
+  if (!categories.includes(category)) {
+    categories.push(category);
+    localStorage.setItem('reminderCategories', JSON.stringify(categories));
+  }
+  
+  return categories;
+};
+
+export const removeCategory = (category: string): string[] => {
+  if (category === 'כללי') {
+    throw new Error('לא ניתן למחוק את הקטגוריה "כללי"');
+  }
+  
+  let categories = getAllCategories();
+  categories = categories.filter(c => c !== category);
+  
+  localStorage.setItem('reminderCategories', JSON.stringify(categories));
+  
+  // Update all reminders with this category to 'כללי'
+  const reminders = getRemindersFromStorage();
+  let hasChanges = false;
+  
+  reminders.forEach(reminder => {
+    if (reminder.category === category) {
+      reminder.category = 'כללי';
+      hasChanges = true;
+    }
+  });
+  
+  if (hasChanges) {
+    saveRemindersToStorage(reminders);
+  }
+  
+  return categories;
+};
+
+// Tag management
+export const getAllTags = (): string[] => {
+  const tags = localStorage.getItem('reminderTags');
+  
+  if (tags) {
+    return JSON.parse(tags);
+  }
+  
+  return [];
+};
+
+export const addTag = (tag: string): string[] => {
+  const tags = getAllTags();
+  
+  if (!tags.includes(tag)) {
+    tags.push(tag);
+    localStorage.setItem('reminderTags', JSON.stringify(tags));
+  }
+  
+  return tags;
+};
+
+export const removeTag = (tag: string): string[] => {
+  let tags = getAllTags();
+  tags = tags.filter(t => t !== tag);
+  
+  localStorage.setItem('reminderTags', JSON.stringify(tags));
+  
+  // Remove this tag from all reminders
+  const reminders = getRemindersFromStorage();
+  let hasChanges = false;
+  
+  reminders.forEach(reminder => {
+    if (reminder.tags.includes(tag)) {
+      reminder.tags = reminder.tags.filter(t => t !== tag);
+      hasChanges = true;
+    }
+  });
+  
+  if (hasChanges) {
+    saveRemindersToStorage(reminders);
+  }
+  
+  return tags;
+};
+
+// Notification functionality
+export const scheduleNotification = (notification: Notification): void => {
+  // This is a mock implementation that would be replaced with actual
+  // notification API code in a real application
+  
+  if (!notification.id) {
+    notification.id = uuidv4();
+  }
+  
+  const notificationTime = new Date(notification.time);
   const now = new Date();
   
-  // Skip past due dates
-  if (dueDate <= now) return;
-  
-  // Schedule notification with a simple timeout
-  // In a real-world app, this should use a more robust system like service workers
-  const timeUntilDue = dueDate.getTime() - now.getTime();
-  
-  setTimeout(() => {
-    // Check if reminder still exists and isn't completed
-    const currentReminder = getReminderById(reminder.id);
-    if (!currentReminder || currentReminder.completed) return;
+  if (notificationTime > now) {
+    const timeUntilNotification = notificationTime.getTime() - now.getTime();
     
-    // Show notification if browser supports it
-    if ('Notification' in window) {
+    // Store pending notifications
+    const pendingNotifications = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
+    pendingNotifications.push(notification);
+    localStorage.setItem('pendingNotifications', JSON.stringify(pendingNotifications));
+    
+    // In a browser environment, we could use setTimeout for demonstration
+    // In a real app, we would use system notifications
+    console.log(`Notification "${notification.message}" scheduled for ${notificationTime.toLocaleString()}`);
+    
+    // This is just for demonstration, in reality we would use a service worker 
+    // or native app notifications
+    setTimeout(() => {
       if (Notification.permission === 'granted') {
-        new Notification('תזכורת', {
-          body: reminder.title,
-          icon: '/logo192.png', // Assuming the app has this favicon
-        });
+        new Notification(notification.message);
       } else if (Notification.permission !== 'denied') {
         Notification.requestPermission().then(permission => {
           if (permission === 'granted') {
-            new Notification('תזכורת', {
-              body: reminder.title,
-              icon: '/logo192.png',
-            });
+            new Notification(notification.message);
           }
         });
       }
-    }
-  }, timeUntilDue);
-};
-
-// Helper for creating recurring reminders
-const createNextRecurringReminder = (completedReminder: Reminder): Reminder => {
-  const nextDueDate = getNextRecurringDate(
-    new Date(completedReminder.dueDate!), 
-    completedReminder.recurringPattern!
-  );
-  
-  return {
-    ...completedReminder,
-    id: crypto.randomUUID(),
-    completed: false,
-    completedAt: undefined,
-    createdAt: new Date(),
-    dueDate: nextDueDate,
-  };
-};
-
-const getNextRecurringDate = (currentDueDate: Date, pattern: string): Date => {
-  const next = new Date(currentDueDate);
-  
-  switch (pattern) {
-    case 'daily':
-      next.setDate(next.getDate() + 1);
-      break;
-    case 'weekly':
-      next.setDate(next.getDate() + 7);
-      break;
-    case 'biweekly':
-      next.setDate(next.getDate() + 14);
-      break;
-    case 'monthly':
-      next.setMonth(next.getMonth() + 1);
-      break;
-    case 'yearly':
-      next.setFullYear(next.getFullYear() + 1);
-      break;
-    default:
-      next.setDate(next.getDate() + 1);
+      
+      // Mark as triggered
+      const pendingNotificationsUpdate = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
+      const index = pendingNotificationsUpdate.findIndex((n: Notification) => n.id === notification.id);
+      
+      if (index !== -1) {
+        pendingNotificationsUpdate[index].triggered = true;
+        localStorage.setItem('pendingNotifications', JSON.stringify(pendingNotificationsUpdate));
+      }
+    }, timeUntilNotification);
   }
-  
-  return next;
 };
 
-// Initialize notifications permission
-export const initNotifications = () => {
-  if ('Notification' in window && Notification.permission === 'default') {
+export const checkForMissedNotifications = (): void => {
+  const pendingNotifications = JSON.parse(localStorage.getItem('pendingNotifications') || '[]');
+  const now = new Date();
+  
+  pendingNotifications.forEach((notification: Notification) => {
+    const notificationTime = new Date(notification.time);
+    
+    if (!notification.triggered && notificationTime <= now) {
+      if (Notification.permission === 'granted') {
+        new Notification(`${notification.message} (התראה שהוחמצה)`);
+      }
+      
+      notification.triggered = true;
+    }
+  });
+  
+  localStorage.setItem('pendingNotifications', JSON.stringify(pendingNotifications));
+};
+
+// Initialize system
+export const initializeReminderSystem = (): void => {
+  // Check for missed notifications
+  checkForMissedNotifications();
+  
+  // Request notification permission
+  if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
     Notification.requestPermission();
   }
-};
-
-// Function to handle initial data loading or seeding
-export const initReminderService = () => {
-  const reminders = loadRemindersFromStorage();
   
-  // If no reminders exist, add some sample data
+  // Generate sample data if none exists
+  const reminders = getRemindersFromStorage();
+  
   if (reminders.length === 0) {
-    const sampleReminders: Reminder[] = [
+    // Add some sample reminders
+    const sampleReminders: Omit<Reminder, 'id' | 'createdAt'>[] = [
       {
-        id: crypto.randomUUID(),
-        title: 'להשלים את השבוע הראשון במסלול המדיטציה',
-        description: 'להתמיד במדיטציות יומיות של 10 דקות',
+        title: 'לקבוע תור לרופא',
+        description: 'לקבוע תור למעקב שנתי אצל רופא המשפחה',
         completed: false,
-        createdAt: new Date(),
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 7)),
+        dueDate: new Date(new Date().setDate(new Date().getDate() + 3)).toISOString(),
         priority: 'high',
         category: 'בריאות',
-        recurring: false,
-        tags: ['מדיטציה', 'התמדה'],
-      },
-      {
-        id: crypto.randomUUID(),
-        title: 'לקרוא מאמר על נשימה סרעפתית',
-        description: 'לחפש מאמר איכותי על טכניקות נשימה והשפעתן על חרדה',
-        completed: false,
-        createdAt: new Date(),
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 2)),
-        priority: 'medium',
-        category: 'לימודים',
-        recurring: false,
-        tags: ['נשימה', 'חרדה', 'לימוד'],
-      },
-      {
-        id: crypto.randomUUID(),
-        title: 'לשתות 2 ליטר מים',
-        description: 'לוודא שתייה מספקת של מים לאורך היום',
-        completed: false,
-        createdAt: new Date(),
-        dueDate: new Date(new Date().setHours(20, 0, 0, 0)),
-        priority: 'medium',
-        category: 'בריאות',
         recurring: true,
-        recurringPattern: 'daily',
-        tags: ['הרגלים', 'בריאות'],
+        recurringPattern: 'yearly',
+        tags: ['בריאות', 'רופא']
       },
+      {
+        title: 'קניות בסופר',
+        description: 'לקנות: חלב, ביצים, לחם, ירקות וירקות',
+        completed: false,
+        dueDate: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
+        priority: 'medium',
+        category: 'קניות',
+        recurring: true,
+        recurringPattern: 'weekly',
+        tags: ['קניות', 'מזון']
+      },
+      {
+        title: 'פגישת צוות',
+        description: 'פגישת צוות שבועית לדיון בהתקדמות הפרויקט',
+        completed: false,
+        dueDate: new Date(new Date().setHours(new Date().getHours() + 24)).toISOString(),
+        priority: 'medium',
+        category: 'עבודה',
+        recurring: true,
+        recurringPattern: 'weekly',
+        tags: ['עבודה', 'פגישות']
+      }
     ];
     
-    saveRemindersToStorage(sampleReminders);
+    sampleReminders.forEach(reminder => createReminder(reminder));
+  }
+};
+
+// Export recurring reminder functions
+export const createRecurringInstance = (reminder: Reminder): Reminder => {
+  if (!reminder.recurring || !reminder.recurringPattern || !reminder.dueDate) {
+    throw new Error('לא ניתן ליצור מופע חדש מתזכורת שאינה חוזרת');
   }
   
-  // Schedule notifications for upcoming reminders
-  const upcomingReminders = getUpcomingReminders(30); // Next 30 days
-  upcomingReminders.forEach(scheduleReminderNotification);
+  const dueDate = new Date(reminder.dueDate);
+  let nextDueDate = new Date(dueDate);
   
-  // Request notification permissions
-  initNotifications();
+  // Calculate next occurrence based on pattern
+  switch (reminder.recurringPattern) {
+    case 'daily':
+      nextDueDate.setDate(dueDate.getDate() + 1);
+      break;
+    case 'weekly':
+      nextDueDate.setDate(dueDate.getDate() + 7);
+      break;
+    case 'biweekly':
+      nextDueDate.setDate(dueDate.getDate() + 14);
+      break;
+    case 'monthly':
+      nextDueDate.setMonth(dueDate.getMonth() + 1);
+      break;
+    case 'yearly':
+      nextDueDate.setFullYear(dueDate.getFullYear() + 1);
+      break;
+  }
+  
+  // Create new instance with updated date
+  const newInstance: Omit<Reminder, 'id' | 'createdAt'> = {
+    ...reminder,
+    completed: false,
+    completedAt: undefined,
+    dueDate: nextDueDate.toISOString()
+  };
+  
+  // Update notifications if they exist
+  if (reminder.notifications && reminder.notifications.length > 0) {
+    const timeDiff = nextDueDate.getTime() - dueDate.getTime();
+    
+    newInstance.notifications = reminder.notifications.map(notification => {
+      const oldTime = new Date(notification.time);
+      const newTime = new Date(oldTime.getTime() + timeDiff);
+      
+      return {
+        time: newTime.toISOString(),
+        message: notification.message,
+        triggered: false
+      };
+    });
+  }
+  
+  return createReminder(newInstance);
+};
+
+// Handle completed recurring reminders
+export const processCompletedRecurringReminder = (reminder: Reminder): void => {
+  if (reminder.completed && reminder.recurring && reminder.dueDate) {
+    createRecurringInstance(reminder);
+  }
 };
