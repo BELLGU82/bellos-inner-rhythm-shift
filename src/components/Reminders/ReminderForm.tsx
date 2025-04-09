@@ -7,44 +7,33 @@ import {
   DialogActions,
   TextField,
   Button,
+  MenuItem,
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
   FormControlLabel,
   Checkbox,
   Stack,
+  Grid,
+  IconButton,
   Typography,
+  Chip,
   Box,
   SelectChangeEvent,
-  IconButton
 } from '@mui/material';
-import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider, DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { he } from 'date-fns/locale';
-import CloseIcon from '@mui/icons-material/Close';
+import { Close as CloseIcon, Add as AddIcon } from '@mui/icons-material';
 import { Reminder, addReminder, updateReminder } from '../../services/reminderService';
 
 interface ReminderFormProps {
   open: boolean;
   onClose: () => void;
-  reminder?: Reminder | null; // If provided, we're editing an existing reminder
-  onSave: () => void;
+  reminder?: Reminder;
 }
 
-// Common categories for reminders - can be expanded
-const CATEGORIES = [
-  'אישי',
-  'עבודה',
-  'בריאות',
-  'משפחה',
-  'כספים',
-  'לימודים',
-  'אחר'
-];
-
-const defaultReminder: Reminder = {
+const initialReminderState: Reminder = {
   id: '',
   title: '',
   description: '',
@@ -54,40 +43,69 @@ const defaultReminder: Reminder = {
   priority: 'medium',
   category: '',
   recurring: false,
-  recurringPattern: null,
-  tags: []
+  recurringPattern: 'daily',
+  tags: [],
 };
 
-export const ReminderForm: React.FC<ReminderFormProps> = ({
-  open,
-  onClose,
-  reminder,
-  onSave
-}) => {
-  const [formData, setFormData] = useState<Reminder>({ ...defaultReminder });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+const categories = ['עבודה', 'אישי', 'בריאות', 'משפחה', 'כספים', 'לימודים', 'אחר'];
+const priorities = [
+  { value: 'low', label: 'נמוכה' },
+  { value: 'medium', label: 'בינונית' },
+  { value: 'high', label: 'גבוהה' },
+];
+const recurringPatterns = [
+  { value: 'daily', label: 'יומי' },
+  { value: 'weekly', label: 'שבועי' },
+  { value: 'biweekly', label: 'דו-שבועי' },
+  { value: 'monthly', label: 'חודשי' },
+  { value: 'yearly', label: 'שנתי' },
+];
 
-  // Initialize form with reminder data if editing
+const ReminderForm: React.FC<ReminderFormProps> = ({ open, onClose, reminder }) => {
+  const [formData, setFormData] = useState<Reminder>(initialReminderState);
+  const [newTag, setNewTag] = useState('');
+  const [newCategory, setNewCategory] = useState('');
+  const [dueTime, setDueTime] = useState<Date | null>(null);
+  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+
   useEffect(() => {
     if (reminder) {
       setFormData({
         ...reminder,
-        // Ensure date objects are properly handled
         dueDate: reminder.dueDate ? new Date(reminder.dueDate) : null,
-        createdAt: new Date(reminder.createdAt),
       });
+      
+      if (reminder.dueDate) {
+        setDueTime(new Date(reminder.dueDate));
+      }
     } else {
-      setFormData({ ...defaultReminder, id: crypto.randomUUID() });
+      // Set default due date to tomorrow noon
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(12, 0, 0, 0);
+      
+      setFormData({
+        ...initialReminderState,
+        id: crypto.randomUUID(),
+        createdAt: new Date(),
+        dueDate: tomorrow,
+      });
+      
+      setDueTime(tomorrow);
     }
-  }, [reminder, open]);
+  }, [reminder]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     
-    // Clear validation errors when field is edited
+    // Clear error when field is edited
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
     }
   };
 
@@ -102,14 +120,78 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({
   };
 
   const handleDateChange = (date: Date | null) => {
+    if (date) {
+      // Preserve time if set, otherwise set to noon
+      if (dueTime) {
+        date.setHours(
+          dueTime.getHours(),
+          dueTime.getMinutes(),
+          dueTime.getSeconds(),
+          dueTime.getMilliseconds()
+        );
+      } else {
+        date.setHours(12, 0, 0, 0);
+      }
+    }
+    
     setFormData(prev => ({ ...prev, dueDate: date }));
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
+  const handleTimeChange = (time: Date | null) => {
+    setDueTime(time);
+    
+    if (time && formData.dueDate) {
+      const updatedDate = new Date(formData.dueDate);
+      updatedDate.setHours(
+        time.getHours(),
+        time.getMinutes(),
+        time.getSeconds(),
+        time.getMilliseconds()
+      );
+      
+      setFormData(prev => ({ ...prev, dueDate: updatedDate }));
+    }
+  };
+
+  const handleAddTag = () => {
+    if (newTag.trim() === '') return;
+    
+    if (!formData.tags.includes(newTag.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, newTag.trim()],
+      }));
+    }
+    
+    setNewTag('');
+  };
+
+  const handleDeleteTag = (tagToDelete: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(tag => tag !== tagToDelete),
+    }));
+  };
+
+  const handleAddCategory = () => {
+    if (newCategory.trim() === '') return;
+    setFormData(prev => ({ ...prev, category: newCategory.trim() }));
+    setNewCategory('');
+  };
+
+  const validate = (): boolean => {
+    const newErrors: { [key: string]: string } = {};
     
     if (!formData.title.trim()) {
-      newErrors.title = 'נדרשת כותרת לתזכורת';
+      newErrors.title = 'יש להזין כותרת לתזכורת';
+    }
+    
+    if (formData.recurring && !formData.recurringPattern) {
+      newErrors.recurringPattern = 'יש לבחור תבנית חזרה';
+    }
+    
+    if (formData.recurring && !formData.dueDate) {
+      newErrors.dueDate = 'יש להגדיר תאריך יעד לתזכורת חוזרת';
     }
     
     setErrors(newErrors);
@@ -117,159 +199,252 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({
   };
 
   const handleSubmit = () => {
-    if (!validateForm()) return;
-    
-    const reminderToSave = { 
-      ...formData,
-      // Ensure created date is set for new reminders
-      createdAt: reminder ? formData.createdAt : new Date(),
-    };
+    if (!validate()) return;
     
     if (reminder) {
-      // Update existing reminder
-      updateReminder(reminderToSave);
+      updateReminder(formData);
     } else {
-      // Add new reminder
-      addReminder(reminderToSave);
+      addReminder(formData);
     }
     
-    onSave();
     onClose();
   };
-  
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={onClose}
-      maxWidth="sm"
+      maxWidth="md"
       fullWidth
-      sx={{ '& .MuiDialog-paper': { borderRadius: 2 } }}
+      PaperProps={{
+        sx: { borderRadius: 2 }
+      }}
     >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h6">
           {reminder ? 'עריכת תזכורת' : 'תזכורת חדשה'}
         </Typography>
-        <IconButton edge="end" color="inherit" onClick={onClose} aria-label="close">
+        <IconButton onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
       
       <DialogContent dividers>
         <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-          <Stack spacing={3} sx={{ mt: 1 }}>
-            <TextField
-              label="כותרת"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              fullWidth
-              required
-              error={!!errors.title}
-              helperText={errors.title}
-              autoFocus
-            />
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <TextField
+                name="title"
+                label="כותרת"
+                value={formData.title}
+                onChange={handleInputChange}
+                fullWidth
+                required
+                autoFocus
+                margin="normal"
+                error={!!errors.title}
+                helperText={errors.title}
+                onKeyPress={handleKeyPress}
+              />
+            </Grid>
             
-            <TextField
-              label="תיאור"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              multiline
-              rows={3}
-              fullWidth
-            />
+            <Grid item xs={12}>
+              <TextField
+                name="description"
+                label="תיאור"
+                value={formData.description}
+                onChange={handleInputChange}
+                fullWidth
+                multiline
+                rows={3}
+                margin="normal"
+              />
+            </Grid>
             
-            <DateTimePicker
-              label="תאריך יעד"
-              value={formData.dueDate}
-              onChange={handleDateChange}
-              slotProps={{
-                textField: {
-                  fullWidth: true,
-                  variant: 'outlined'
-                }
-              }}
-            />
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel id="priority-label">עדיפות</InputLabel>
+                <Select
+                  labelId="priority-label"
+                  name="priority"
+                  value={formData.priority}
+                  onChange={handleSelectChange}
+                  label="עדיפות"
+                >
+                  {priorities.map(priority => (
+                    <MenuItem key={priority.value} value={priority.value}>
+                      {priority.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
             
-            <FormControl fullWidth>
-              <InputLabel id="priority-label">עדיפות</InputLabel>
-              <Select
-                labelId="priority-label"
-                name="priority"
-                value={formData.priority}
-                onChange={handleSelectChange}
-                label="עדיפות"
-              >
-                <MenuItem value="low">נמוכה</MenuItem>
-                <MenuItem value="medium">בינונית</MenuItem>
-                <MenuItem value="high">גבוהה</MenuItem>
-              </Select>
-            </FormControl>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth margin="normal">
+                <InputLabel id="category-label">קטגוריה</InputLabel>
+                <Select
+                  labelId="category-label"
+                  name="category"
+                  value={formData.category}
+                  onChange={handleSelectChange}
+                  label="קטגוריה"
+                >
+                  {categories.map(category => (
+                    <MenuItem key={category} value={category}>
+                      {category}
+                    </MenuItem>
+                  ))}
+                  <MenuItem value="other">אחר...</MenuItem>
+                </Select>
+              </FormControl>
+              
+              {formData.category === 'other' && (
+                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                  <TextField
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    placeholder="הקלד קטגוריה חדשה"
+                    size="small"
+                    fullWidth
+                  />
+                  <Button 
+                    variant="contained" 
+                    color="primary" 
+                    onClick={handleAddCategory}
+                    size="small"
+                  >
+                    הוסף
+                  </Button>
+                </Box>
+              )}
+            </Grid>
             
-            <FormControl fullWidth>
-              <InputLabel id="category-label">קטגוריה</InputLabel>
-              <Select
-                labelId="category-label"
-                name="category"
-                value={formData.category || ''}
-                onChange={handleSelectChange}
-                label="קטגוריה"
-              >
-                <MenuItem value="">
-                  <em>ללא קטגוריה</em>
-                </MenuItem>
-                {CATEGORIES.map(category => (
-                  <MenuItem key={category} value={category}>
-                    {category}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Grid item xs={12} sm={6}>
+              <DatePicker
+                label="תאריך יעד"
+                value={formData.dueDate}
+                onChange={handleDateChange}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    margin: 'normal',
+                    error: !!errors.dueDate,
+                    helperText: errors.dueDate,
+                  }
+                }}
+              />
+            </Grid>
             
-            <Box>
+            <Grid item xs={12} sm={6}>
+              <TimePicker
+                label="שעה"
+                value={dueTime}
+                onChange={handleTimeChange}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    margin: 'normal',
+                  }
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
               <FormControlLabel
                 control={
                   <Checkbox
+                    name="recurring"
                     checked={formData.recurring}
                     onChange={handleCheckboxChange}
-                    name="recurring"
                   />
                 }
                 label="תזכורת חוזרת"
               />
               
               {formData.recurring && (
-                <FormControl fullWidth sx={{ mt: 2 }}>
+                <FormControl fullWidth margin="normal">
                   <InputLabel id="recurring-pattern-label">תבנית חזרה</InputLabel>
                   <Select
                     labelId="recurring-pattern-label"
                     name="recurringPattern"
-                    value={formData.recurringPattern || ''}
+                    value={formData.recurringPattern}
                     onChange={handleSelectChange}
                     label="תבנית חזרה"
+                    error={!!errors.recurringPattern}
                   >
-                    <MenuItem value="daily">יומי</MenuItem>
-                    <MenuItem value="weekly">שבועי</MenuItem>
-                    <MenuItem value="monthly">חודשי</MenuItem>
-                    <MenuItem value="yearly">שנתי</MenuItem>
+                    {recurringPatterns.map(pattern => (
+                      <MenuItem key={pattern.value} value={pattern.value}>
+                        {pattern.label}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               )}
-            </Box>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>
+                תגיות
+              </Typography>
+              <Stack direction="row" spacing={1} sx={{ mb: 1 }}>
+                {formData.tags.map(tag => (
+                  <Chip
+                    key={tag}
+                    label={tag}
+                    onDelete={() => handleDeleteTag(tag)}
+                    color="primary"
+                    variant="outlined"
+                    size="small"
+                  />
+                ))}
+              </Stack>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  placeholder="הוסף תגית חדשה"
+                  size="small"
+                  fullWidth
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddTag();
+                    }
+                  }}
+                />
+                <Button
+                  variant="outlined"
+                  onClick={handleAddTag}
+                  startIcon={<AddIcon />}
+                >
+                  הוסף
+                </Button>
+              </Stack>
+            </Grid>
             
             {reminder && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formData.completed}
-                    onChange={handleCheckboxChange}
-                    name="completed"
-                  />
-                }
-                label="הושלם"
-              />
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      name="completed"
+                      checked={formData.completed}
+                      onChange={handleCheckboxChange}
+                    />
+                  }
+                  label="בוצע"
+                />
+              </Grid>
             )}
-          </Stack>
+          </Grid>
         </LocalizationProvider>
       </DialogContent>
       
@@ -277,8 +452,12 @@ export const ReminderForm: React.FC<ReminderFormProps> = ({
         <Button onClick={onClose} color="inherit">
           ביטול
         </Button>
-        <Button onClick={handleSubmit} variant="contained" color="primary">
-          {reminder ? 'עדכון' : 'הוספה'}
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          color="primary"
+        >
+          {reminder ? 'עדכן' : 'צור תזכורת'}
         </Button>
       </DialogActions>
     </Dialog>
