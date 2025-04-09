@@ -1,271 +1,262 @@
-import api from './api';
+import { Project, Milestone } from '../types/Project';
 import { v4 as uuidv4 } from 'uuid';
 
-// Project status types
-export type ProjectStatus = 'not_started' | 'in_progress' | 'on_hold' | 'completed';
+// Mock data for development 
+const MOCK_PROJECTS: Project[] = [
+  {
+    id: '1',
+    name: 'פיתוח אפליקציה',
+    description: 'פיתוח אפליקציית מובייל לניהול משימות ופרויקטים',
+    status: 'בתהליך',
+    progress: 65,
+    dueDate: '2025-06-30',
+    createdAt: '2025-01-15',
+    milestones: [
+      { name: 'אפיון ותכנון', completed: true },
+      { name: 'עיצוב ממשק', completed: true },
+      { name: 'פיתוח', completed: false },
+      { name: 'בדיקות', completed: false },
+      { name: 'השקה', completed: false },
+    ],
+  },
+  {
+    id: '2',
+    name: 'שיווק דיגיטלי',
+    description: 'פיתוח אסטרטגיית שיווק דיגיטלי לרבעון הבא',
+    status: 'לא התחיל',
+    progress: 0,
+    dueDate: '2025-05-15',
+    createdAt: '2025-03-01',
+    milestones: [
+      { name: 'מחקר שוק', completed: false },
+      { name: 'גיבוש אסטרטגיה', completed: false },
+      { name: 'יצירת תוכן', completed: false },
+      { name: 'השקת קמפיין', completed: false },
+    ],
+  },
+  {
+    id: '3',
+    name: 'פיתוח קורס הכשרה',
+    description: 'פיתוח קורס הכשרה פנים-ארגוני בנושא אבטחת מידע',
+    status: 'הושלם',
+    progress: 100,
+    dueDate: '2025-02-28',
+    createdAt: '2025-01-05',
+    milestones: [
+      { name: 'מחקר וגיבוש תכנים', completed: true },
+      { name: 'יצירת מצגות', completed: true },
+      { name: 'פיתוח תרגולים', completed: true },
+      { name: 'העברת הקורס', completed: true },
+    ],
+  },
+];
 
-// Project milestone type
-export interface ProjectMilestone {
-  title: string;
-  completed: boolean;
-}
+export class ProjectService {
+  private storage: Storage;
+  private projects: Project[];
 
-// Project data structure
-export interface Project {
-  id: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  status: ProjectStatus;
-  priority: 'low' | 'medium' | 'high';
-  progress: number;
-  milestones: ProjectMilestone[];
-  createdAt: string;
-}
+  constructor() {
+    this.storage = localStorage;
+    this.projects = this.loadProjects();
+    
+    // Initialize with mock data if no projects exist
+    if (this.projects.length === 0) {
+      this.projects = MOCK_PROJECTS;
+      this.saveProjects();
+    }
+  }
 
-/**
- * ProjectService - handles all project-related API operations
- */
-class ProjectService {
-  /**
-   * Get all projects
-   */
-  async getAllProjects(): Promise<Project[]> {
-    try {
-      // Simulated API call - in production would use the actual endpoint
-      // const response = await api.get('/projects');
-      // return response.data;
-      
-      // For demo purposes, return mock data
-      return this.getMockProjects();
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-      throw error;
-    }
+  private loadProjects(): Project[] {
+    const projectsJson = this.storage.getItem('projects');
+    return projectsJson ? JSON.parse(projectsJson) : [];
   }
-  
-  /**
-   * Get project by ID
-   */
-  async getProjectById(id: string): Promise<Project> {
-    try {
-      // Simulated API call - in production would use the actual endpoint
-      // const response = await api.get(`/projects/${id}`);
-      // return response.data;
-      
-      // For demo purposes, look up in mock data
-      const projects = this.getMockProjects();
-      const project = projects.find(p => p.id === id);
-      
-      if (!project) {
-        throw new Error(`Project with ID ${id} not found`);
-      }
-      
-      return project;
-    } catch (error) {
-      console.error(`Error fetching project ${id}:`, error);
-      throw error;
-    }
+
+  private saveProjects(): void {
+    this.storage.setItem('projects', JSON.stringify(this.projects));
   }
-  
-  /**
-   * Create a new project
-   */
-  async createProject(project: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
-    try {
-      // Create a new project object with generated ID and timestamp
-      const newProject: Project = {
-        ...project,
-        id: uuidv4(),
-        createdAt: new Date().toISOString(),
-      };
-      
-      // Simulated API call - in production would use the actual endpoint
-      // const response = await api.post('/projects', newProject);
-      // return response.data;
-      
-      // For demo purposes, simulate successful creation
-      console.log('Project created:', newProject);
-      return newProject;
-    } catch (error) {
-      console.error('Error creating project:', error);
-      throw error;
-    }
+
+  public async getAllProjects(): Promise<Project[]> {
+    // Simulating API call
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve([...this.projects]);
+      }, 300);
+    });
   }
-  
-  /**
-   * Update an existing project
-   */
-  async updateProject(project: Project): Promise<Project> {
-    try {
-      // Simulated API call - in production would use the actual endpoint
-      // const response = await api.put(`/projects/${project.id}`, project);
-      // return response.data;
-      
-      // For demo purposes, simulate successful update
-      console.log('Project updated:', project);
-      return project;
-    } catch (error) {
-      console.error(`Error updating project ${project.id}:`, error);
-      throw error;
-    }
+
+  public async getProjectById(id: string): Promise<Project | null> {
+    // Simulating API call
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const project = this.projects.find(p => p.id === id) || null;
+        resolve(project ? { ...project } : null);
+      }, 300);
+    });
   }
-  
-  /**
-   * Delete a project
-   */
-  async deleteProject(id: string): Promise<void> {
-    try {
-      // Simulated API call - in production would use the actual endpoint
-      // await api.delete(`/projects/${id}`);
-      
-      // For demo purposes, simulate successful deletion
-      console.log(`Project ${id} deleted`);
-    } catch (error) {
-      console.error(`Error deleting project ${id}:`, error);
-      throw error;
-    }
+
+  public async createProject(projectData: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
+    // Simulating API call
+    return new Promise(resolve => {
+      setTimeout(() => {
+        const newProject: Project = {
+          ...projectData,
+          id: uuidv4(),
+          createdAt: new Date().toISOString(),
+        };
+        
+        this.projects.push(newProject);
+        this.saveProjects();
+        
+        resolve({ ...newProject });
+      }, 300);
+    });
   }
-  
-  /**
-   * Update project progress
-   */
-  async updateProgress(id: string, progress: number): Promise<void> {
-    try {
-      // Simulated API call - in production would use the actual endpoint
-      // await api.patch(`/projects/${id}/progress`, { progress });
-      
-      // For demo purposes, simulate successful progress update
-      console.log(`Progress for project ${id} updated to ${progress}%`);
-    } catch (error) {
-      console.error(`Error updating progress for project ${id}:`, error);
-      throw error;
-    }
+
+  public async updateProject(project: Project): Promise<Project> {
+    // Simulating API call
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const index = this.projects.findIndex(p => p.id === project.id);
+        
+        if (index === -1) {
+          reject(new Error('Project not found'));
+          return;
+        }
+        
+        this.projects[index] = { ...project };
+        this.saveProjects();
+        
+        resolve({ ...project });
+      }, 300);
+    });
   }
-  
-  /**
-   * Mark a project as completed
-   */
-  async completeProject(id: string): Promise<void> {
-    try {
-      // Simulated API call - in production would use the actual endpoint
-      // await api.patch(`/projects/${id}/complete`);
-      
-      // For demo purposes, simulate successful completion
-      console.log(`Project ${id} marked as completed`);
-    } catch (error) {
-      console.error(`Error completing project ${id}:`, error);
-      throw error;
-    }
+
+  public async deleteProject(id: string): Promise<void> {
+    // Simulating API call
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const index = this.projects.findIndex(p => p.id === id);
+        
+        if (index === -1) {
+          reject(new Error('Project not found'));
+          return;
+        }
+        
+        this.projects.splice(index, 1);
+        this.saveProjects();
+        
+        resolve();
+      }, 300);
+    });
   }
-  
-  /**
-   * Generate mock projects for demonstration
-   * In a real application, this would be replaced with actual API calls
-   */
-  private getMockProjects(): Project[] {
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    
-    const nextWeek = new Date(today);
-    nextWeek.setDate(nextWeek.getDate() + 7);
-    
-    const nextMonth = new Date(today);
-    nextMonth.setMonth(nextMonth.getMonth() + 1);
-    
-    const lastWeek = new Date(today);
-    lastWeek.setDate(lastWeek.getDate() - 7);
-    
-    return [
-      {
-        id: '1',
-        title: 'Website Redesign',
-        description: 'Completely overhaul the company website with a modern design and improved user experience.',
-        dueDate: nextMonth.toISOString().split('T')[0],
-        status: 'in_progress',
-        priority: 'high',
-        progress: 45,
-        milestones: [
-          { title: 'Design mockups', completed: true },
-          { title: 'Frontend development', completed: true },
-          { title: 'Content migration', completed: false },
-          { title: 'Testing and QA', completed: false },
-          { title: 'Launch', completed: false }
-        ],
-        createdAt: lastWeek.toISOString()
-      },
-      {
-        id: '2',
-        title: 'Mobile App Development',
-        description: 'Create a cross-platform mobile application for iOS and Android.',
-        dueDate: nextMonth.toISOString().split('T')[0],
-        status: 'not_started',
-        priority: 'medium',
-        progress: 0,
-        milestones: [
-          { title: 'Requirements gathering', completed: false },
-          { title: 'UI/UX design', completed: false },
-          { title: 'Backend development', completed: false },
-          { title: 'Frontend development', completed: false },
-          { title: 'Testing', completed: false },
-          { title: 'App store submission', completed: false }
-        ],
-        createdAt: today.toISOString()
-      },
-      {
-        id: '3',
-        title: 'Marketing Campaign',
-        description: 'Plan and execute Q2 marketing campaign across social media, email, and content marketing.',
-        dueDate: tomorrow.toISOString().split('T')[0],
-        status: 'on_hold',
-        priority: 'high',
-        progress: 30,
-        milestones: [
-          { title: 'Strategy development', completed: true },
-          { title: 'Content creation', completed: true },
-          { title: 'Campaign setup', completed: false },
-          { title: 'Launch campaign', completed: false },
-          { title: 'Analyze results', completed: false }
-        ],
-        createdAt: lastWeek.toISOString()
-      },
-      {
-        id: '4',
-        title: 'Product Launch',
-        description: 'Coordinate the launch of our new flagship product.',
-        dueDate: nextWeek.toISOString().split('T')[0],
-        status: 'in_progress',
-        priority: 'high',
-        progress: 65,
-        milestones: [
-          { title: 'Product testing', completed: true },
-          { title: 'Marketing materials', completed: true },
-          { title: 'Press release', completed: true },
-          { title: 'Launch event planning', completed: false },
-          { title: 'Post-launch support', completed: false }
-        ],
-        createdAt: lastWeek.toISOString()
-      },
-      {
-        id: '5',
-        title: 'Office Renovation',
-        description: 'Renovate the main office space to accommodate team growth and improve work environment.',
-        dueDate: nextMonth.toISOString().split('T')[0],
-        status: 'completed',
-        priority: 'medium',
-        progress: 100,
-        milestones: [
-          { title: 'Design approval', completed: true },
-          { title: 'Contractor selection', completed: true },
-          { title: 'Construction phase', completed: true },
-          { title: 'Furniture and equipment', completed: true },
-          { title: 'Move-in', completed: true }
-        ],
-        createdAt: lastWeek.toISOString()
-      }
-    ];
+
+  public async updateProgress(id: string, progress: number): Promise<Project> {
+    // Simulating API call
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const index = this.projects.findIndex(p => p.id === id);
+        
+        if (index === -1) {
+          reject(new Error('Project not found'));
+          return;
+        }
+        
+        const project = { ...this.projects[index] };
+        project.progress = progress;
+        
+        // Update status based on progress
+        if (progress === 0) {
+          project.status = 'לא התחיל';
+        } else if (progress === 100) {
+          project.status = 'הושלם';
+        } else {
+          project.status = 'בתהליך';
+        }
+        
+        this.projects[index] = project;
+        this.saveProjects();
+        
+        resolve({ ...project });
+      }, 300);
+    });
+  }
+
+  public async completeProject(id: string): Promise<Project> {
+    // Simulating API call
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const index = this.projects.findIndex(p => p.id === id);
+        
+        if (index === -1) {
+          reject(new Error('Project not found'));
+          return;
+        }
+        
+        const project = { ...this.projects[index] };
+        project.status = 'הושלם';
+        project.progress = 100;
+        
+        // Mark all milestones as completed
+        if (project.milestones && project.milestones.length > 0) {
+          project.milestones = project.milestones.map(m => ({
+            ...m,
+            completed: true
+          }));
+        }
+        
+        this.projects[index] = project;
+        this.saveProjects();
+        
+        resolve({ ...project });
+      }, 300);
+    });
+  }
+
+  public async updateMilestone(
+    projectId: string, 
+    milestoneIndex: number, 
+    updatedMilestone: Milestone
+  ): Promise<Project> {
+    // Simulating API call
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        const index = this.projects.findIndex(p => p.id === projectId);
+        
+        if (index === -1) {
+          reject(new Error('Project not found'));
+          return;
+        }
+        
+        const project = { ...this.projects[index] };
+        
+        if (!project.milestones || milestoneIndex >= project.milestones.length) {
+          reject(new Error('Milestone not found'));
+          return;
+        }
+        
+        // Update the specific milestone
+        project.milestones[milestoneIndex] = updatedMilestone;
+        
+        // Recalculate progress based on completed milestones
+        if (project.milestones.length > 0) {
+          const completedCount = project.milestones.filter(m => m.completed).length;
+          project.progress = Math.round((completedCount / project.milestones.length) * 100);
+          
+          // Update status based on progress
+          if (project.progress === 0) {
+            project.status = 'לא התחיל';
+          } else if (project.progress === 100) {
+            project.status = 'הושלם';
+          } else {
+            project.status = 'בתהליך';
+          }
+        }
+        
+        this.projects[index] = project;
+        this.saveProjects();
+        
+        resolve({ ...project });
+      }, 300);
+    });
   }
 }
-
-export default new ProjectService();
