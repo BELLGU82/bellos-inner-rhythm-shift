@@ -10,6 +10,10 @@ import Bellendar from "./pages/Bellendar";
 import SmartClock from "./pages/SmartClock";
 import TaskLadder from "./pages/TaskLadder";
 import PomodoroTimer from "./pages/PomodoroTimer";
+import ProcessMap from "./pages/ProcessMap";
+import Delegation from "./pages/Delegation";
+import BellRest from "./pages/BellRest";
+import IdentityCore from "./pages/IdentityCore";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +40,22 @@ const App = () => (
           <Route 
             path="/tasks" 
             element={<Layout><TaskLadder /></Layout>} 
+          />
+          <Route 
+            path="/process" 
+            element={<Layout><ProcessMap /></Layout>} 
+          />
+          <Route 
+            path="/delegation" 
+            element={<Layout><Delegation /></Layout>} 
+          />
+          <Route 
+            path="/rest" 
+            element={<Layout><BellRest /></Layout>} 
+          />
+          <Route 
+            path="/identity" 
+            element={<Layout><IdentityCore /></Layout>} 
           />
           <Route 
             path="/pomodoro" 
