@@ -17,6 +17,7 @@ import IdentityCore from "./pages/IdentityCore";
 import PomodoroTimer from "./pages/PomodoroTimer";
 import NotFound from "./pages/NotFound";
 import LanguageToggle from "./components/LanguageToggle";
+import BellGPT from "./components/BellGPT";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <LanguageToggle />
+        <BellGPT />
         <BrowserRouter>
           <Routes>
             <Route 

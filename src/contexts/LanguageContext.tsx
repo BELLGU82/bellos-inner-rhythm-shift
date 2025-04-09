@@ -131,6 +131,31 @@ const translations: Record<string, Record<string, string>> = {
   'welcome_back': {
     en: 'Welcome back',
     he: 'ברוך שובך'
+  },
+  // BellGPT translations
+  'gpt_thinking': {
+    en: 'Thinking...',
+    he: 'חושב...'
+  },
+  'gpt_error': {
+    en: 'Sorry, I couldn\'t process that request. Please try again.',
+    he: 'מצטער, לא הצלחתי לעבד את הבקשה. נסה שוב בבקשה.'
+  },
+  'gpt_placeholder': {
+    en: 'Ask me anything...',
+    he: 'שאל אותי כל דבר...'
+  },
+  'convert_to_task': {
+    en: 'Convert to Task',
+    he: 'המר למשימה'
+  },
+  'save_as_insight': {
+    en: 'Save as Insight',
+    he: 'שמור כתובנה'
+  },
+  'add_to_calendar': {
+    en: 'Add to Calendar',
+    he: 'הוסף ליומן'
   }
 };
 
