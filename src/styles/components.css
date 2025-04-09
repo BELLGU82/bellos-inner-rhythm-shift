@@ -1,0 +1,137 @@
+/* Components.css - Custom components styling */
+
+/* Neumorphic buttons */
+.bell-primary-btn {
+  @apply px-4 py-2 rounded-lg font-medium bg-bell-primary text-white border border-transparent
+  shadow-md transition-all duration-200 hover:bg-bell-primary/90 focus:outline-none 
+  focus:ring-2 focus:ring-bell-primary/50 active:scale-95;
+}
+
+.bell-secondary-btn {
+  @apply px-4 py-2 rounded-lg font-medium bg-white border border-bell-subtle
+  shadow-sm hover:bg-gray-50 transition-all duration-200 hover:shadow
+  focus:outline-none focus:ring-2 focus:ring-bell-primary/20 active:scale-95;
+}
+
+.bell-outline-icon {
+  @apply p-1.5 rounded-full hover:bg-bell-subtle transition-colors;
+}
+
+/* Neumorphic effects */
+.neumorph-card {
+  @apply bg-white rounded-xl shadow-[5px_5px_15px_rgba(0,0,0,0.08),-5px_-5px_15px_rgba(255,255,255,0.9)]
+  border border-gray-100/80 p-6;
+}
+
+.neumorph-sm {
+  @apply shadow-[2px_2px_5px_rgba(0,0,0,0.05),-2px_-2px_5px_rgba(255,255,255,0.8)]
+  bg-white border border-gray-100/80;
+}
+
+.neumorph-btn {
+  @apply shadow-[2px_2px_6px_rgba(0,0,0,0.1),-2px_-2px_6px_rgba(255,255,255,0.9)]
+  hover:shadow-[1px_1px_3px_rgba(0,0,0,0.1),-1px_-1px_3px_rgba(255,255,255,0.9)]
+  active:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.08),inset_-2px_-2px_5px_rgba(255,255,255,0.8)]
+  bg-white border border-gray-100/50 transition-all duration-200;
+}
+
+.neumorph-inner {
+  @apply shadow-[inset_2px_2px_5px_rgba(0,0,0,0.03),inset_-2px_-2px_5px_rgba(255,255,255,0.8)]
+  bg-gray-50/50 border border-gray-100/80;
+}
+
+/* Task Cards */
+.bell-task-card {
+  @apply bg-white rounded-xl border border-gray-100 shadow-sm 
+  hover:shadow-md transition-all duration-300 cursor-pointer;
+}
+
+.bell-task-card.expanded {
+  @apply shadow-md ring-2 ring-bell-primary/20;
+}
+
+.bell-task-card.faded {
+  @apply opacity-50;
+}
+
+/* Insight Cards */
+.bell-insight-card {
+  @apply p-3 rounded-lg bg-white border border-bell-subtle;
+}
+
+.bell-emotion-card {
+  @apply rounded-lg bg-gradient-to-tr from-blue-50 to-blue-100/40 border border-blue-100;
+}
+
+/* Breathing Container */
+.bell-breathing-container {
+  @apply min-h-screen p-6 bg-gradient-to-b from-gray-50 to-white;
+}
+
+.bell-breather {
+  @apply bg-gradient-to-r from-pink-50 to-purple-50 p-4 rounded-lg
+  border border-pink-100/50 text-center text-bell-foreground/80 italic;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(248, 138, 176, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(248, 138, 176, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.animate-pulse {
+  animation: pulseGlow 2s infinite;
+}
+
+/* Dialog */
+.bell-dialog-backdrop {
+  @apply fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+}
+
+.bell-dialog {
+  @apply w-full max-w-md bg-white rounded-xl shadow-2xl border border-gray-100
+  overflow-hidden max-h-[80vh] flex flex-col;
+}
+
+.bell-dialog-content {
+  @apply flex-1 overflow-y-auto p-6;
+}
+
+/* Notification */
+.bell-notification {
+  @apply fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg max-w-xs animate-fade-in;
+}
+
+/* RTL Support */
+.rtl {
+  direction: rtl;
+}
+
+.rtl .mr-2, .rtl .mr-3 {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+
+.rtl .ml-2, .rtl .ml-3 {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
