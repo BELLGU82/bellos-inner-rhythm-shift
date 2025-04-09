@@ -88,7 +88,7 @@ const IdentityCore = () => {
         {/* Left column */}
         <div className="lg:col-span-2 space-y-8">
           <NeumorphCard className="animate-fade-in">
-            <h3 className="text-lg font-semibold mb-4 text-bell-foreground">תהליך זהות: מהיום למחר</h3>
+            <h3 className="text-lg mb-4 text-bell-foreground font-medium">תהליך זהות: מהיום למחר</h3>
             
             <div className="space-y-6">
               {identities.map(item => <div key={item.id} className="p-5 neumorph-inner rounded-xl">
@@ -156,7 +156,7 @@ const IdentityCore = () => {
           animationDelay: '0.2s'
         }}>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-bell-foreground">אפירמציה</h3>
+              <h3 className="text-lg text-bell-foreground font-medium">אפירמציה</h3>
               <button onClick={() => setEditingAffirmation(!editingAffirmation)} className="text-bell-muted hover:text-bell-primary">
                 <Edit size={18} />
               </button>
@@ -190,7 +190,7 @@ const IdentityCore = () => {
         }}>
             <div className="flex items-center gap-2 mb-4">
               <Sparkles size={18} className="text-amber-400" />
-              <h3 className="text-lg font-semibold text-bell-foreground">רצף תרגול זהות</h3>
+              <h3 className="text-lg text-bell-foreground font-medium">רצף תרגול זהות</h3>
             </div>
             
             <div className="p-4 neumorph-inner rounded-xl">
