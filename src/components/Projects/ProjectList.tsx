@@ -797,3 +797,176 @@ const ProjectList: React.FC = () => {
             )}
           </>
         )}
+
+        {/* Project Form Dialog */}
+        <Dialog open={openForm} onClose={handleCloseForm} maxWidth="md" fullWidth>
+          <DialogTitle>
+            {isEditMode ? 'עריכת פרויקט' : 'הוספת פרויקט חדש'}
+          </DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <TextField
+                  label="שם הפרויקט"
+                  fullWidth
+                  value={currentProject?.title || ''}
+                  onChange={(e) => setCurrentProject(prev => 
+                    prev ? { ...prev, title: e.target.value } : null
+                  )}
+                  error={!!formErrors.title}
+                  helperText={formErrors.title}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  label="תיאור הפרויקט"
+                  fullWidth
+                  multiline
+                  rows={4}
+                  value={currentProject?.description || ''}
+                  onChange={(e) => setCurrentProject(prev => 
+                    prev ? { ...prev, description: e.target.value } : null
+                  )}
+                  error={!!formErrors.description}
+                  helperText={formErrors.description}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>סטטוס</InputLabel>
+                  <Select
+                    value={currentProject?.status || 'NOT_STARTED'}
+                    onChange={(e) => setCurrentProject(prev => 
+                      prev ? { 
+                        ...prev, 
+                        status: e.target.value as ProjectStatus,
+                        completedAt: e.target.value === 'COMPLETED' ? new Date().toISOString() : null,
+                        progress: e.target.value === 'COMPLETED' ? 100 : prev.progress
+                      } : null
+                    )}
+                    label="סטטוס"
+                  >
+                    <MenuItem value="NOT_STARTED">טרם התחיל</MenuItem>
+                    <MenuItem value="IN_PROGRESS">בתהליך</MenuItem>
+                    <MenuItem value="ON_HOLD">בהמתנה</MenuItem>
+                    <MenuItem value="COMPLETED">הושלם</MenuItem>
+                    <MenuItem value="CANCELLED">בוטל</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>עדיפות</InputLabel>
+                  <Select
+                    value={currentProject?.priority || 'MEDIUM'}
+                    onChange={(e) => setCurrentProject(prev => 
+                      prev ? { ...prev, priority: e.target.value as ProjectPriority } : null
+                    )}
+                    label="עדיפות"
+                  >
+                    <MenuItem value="LOW">נמוכה</MenuItem>
+                    <MenuItem value="MEDIUM">בינונית</MenuItem>
+                    <MenuItem value="HIGH">גבוהה</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <DatePicker
+                  label="תאריך יעד"
+                  value={currentProject?.dueDate ? new Date(currentProject.dueDate) : null}
+                  onChange={(date) => setCurrentProject(prev => 
+                    prev ? { ...prev, dueDate: date ? date.toISOString() : prev.dueDate } : null
+                  )}
+                  slotProps={{
+                    textField: {
+                      fullWidth: true,
+                      error: !!formErrors.dueDate,
+                      helperText: formErrors.dueDate
+                    }
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="אחוז התקדמות"
+                  type="number"
+                  fullWidth
+                  InputProps={{
+                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                  }}
+                  value={currentProject?.progress || 0}
+                  onChange={(e) => {
+                    const value = Math.min(100, Math.max(0, Number(e.target.value)));
+                    setCurrentProject(prev => 
+                      prev ? { ...prev, progress: value } : null
+                    );
+                  }}
+                  inputProps={{ min: 0, max: 100 }}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TextField
+                  label="תגיות (מופרדות בפסיק)"
+                  fullWidth
+                  value={currentProject?.tags?.join(', ') || ''}
+                  onChange={(e) => setCurrentProject(prev => 
+                    prev ? { 
+                      ...prev, 
+                      tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean)
+                    } : null
+                  )}
+                  placeholder="הוסף תגיות מופרדות בפסיק: לדוגמה - משימה, פיתוח, דחוף"
+                  helperText="הוסף תגיות כדי לסווג את הפרויקט"
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseForm} color="inherit">
+              ביטול
+            </Button>
+            <Button 
+              onClick={handleSaveProject} 
+              color="primary" 
+              variant="contained"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : isEditMode ? 'עדכון' : 'שמירה'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={openDeleteDialog} onClose={handleCloseDeleteDialog}>
+          <DialogTitle>מחיקת פרויקט</DialogTitle>
+          <DialogContent>
+            <Typography>
+              האם אתה בטוח שברצונך למחוק את הפרויקט? פעולה זו אינה ניתנת לביטול.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseDeleteDialog} color="inherit">
+              ביטול
+            </Button>
+            <Button 
+              onClick={handleDeleteProject} 
+              color="error" 
+              variant="contained"
+              disabled={loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'מחיקה'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </LocalizationProvider>
+  );
+};
+
+export default ProjectList;
