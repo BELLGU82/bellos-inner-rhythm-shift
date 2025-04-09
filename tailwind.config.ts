@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,12 +62,29 @@ export default {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// BellOS specific colors
+				bell: {
+					background: '#f0f2f5',
+					foreground: '#2c3e50',
+					primary: '#4a6fa5',
+					secondary: '#8ca3c3',
+					accent: '#e74c3c',
+					muted: '#bdc3c7',
+					card: '#ffffff',
+					subtle: '#f8fafc'
 				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
 				sm: 'calc(var(--radius) - 4px)'
+			},
+			boxShadow: {
+				'neumorph': '20px 20px 60px #d9d9d9, -20px -20px 60px #ffffff',
+				'neumorph-sm': '10px 10px 20px #d9d9d9, -10px -10px 20px #ffffff',
+				'neumorph-inner': 'inset 6px 6px 12px #d9d9d9, inset -6px -6px 12px #ffffff',
+				'neumorph-pressed': 'inset 4px 4px 8px #d9d9d9, inset -4px -4px 8px #ffffff',
 			},
 			keyframes: {
 				'accordion-down': {
@@ -84,11 +102,26 @@ export default {
 					to: {
 						height: '0'
 					}
+				},
+				'pulse-subtle': {
+					'0%, 100%': { opacity: '1' },
+					'50%': { opacity: '0.85' }
+				},
+				'fade-in': {
+					'0%': { opacity: '0', transform: 'translateY(10px)' },
+					'100%': { opacity: '1', transform: 'translateY(0)' }
+				},
+				'scale-in': {
+					'0%': { transform: 'scale(0.95)', opacity: '0' },
+					'100%': { transform: 'scale(1)', opacity: '1' }
 				}
 			},
 			animation: {
 				'accordion-down': 'accordion-down 0.2s ease-out',
-				'accordion-up': 'accordion-up 0.2s ease-out'
+				'accordion-up': 'accordion-up 0.2s ease-out',
+				'pulse-subtle': 'pulse-subtle 3s infinite ease-in-out',
+				'fade-in': 'fade-in 0.4s ease-out',
+				'scale-in': 'scale-in 0.3s ease-out'
 			}
 		}
 	},
