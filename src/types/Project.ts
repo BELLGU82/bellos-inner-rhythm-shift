@@ -1,16 +1,33 @@
-export type ProjectStatus = 'NOT_STARTED' | 'IN_PROGRESS' | 'ON_HOLD' | 'COMPLETED' | 'CANCELLED';
+/**
+ * Project status types
+ */
+export type ProjectStatus = 
+  | 'NOT_STARTED' 
+  | 'IN_PROGRESS' 
+  | 'ON_HOLD' 
+  | 'COMPLETED' 
+  | 'CANCELLED';
 
-export type ProjectPriority = 'LOW' | 'MEDIUM' | 'HIGH';
+/**
+ * Project priority levels
+ */
+export type ProjectPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
+/**
+ * Project milestone interface
+ */
 export interface Milestone {
   id: string;
   title: string;
   description?: string;
   dueDate: string;
-  completed: boolean;
-  completedAt?: string | null;
+  completedAt: string | null;
+  isCompleted: boolean;
 }
 
+/**
+ * Project interface
+ */
 export interface Project {
   id: string;
   title: string;
@@ -21,21 +38,44 @@ export interface Project {
   updatedAt: string;
   dueDate: string;
   completedAt: string | null;
-  progress: number;
+  progress: number; // 0 to 100
   tags: string[];
   milestones: Milestone[];
 }
 
-export interface ProjectFilters {
-  searchTerm?: string;
+/**
+ * Project filter options
+ */
+export interface ProjectFilter {
   status?: ProjectStatus | 'ALL';
   priority?: ProjectPriority | 'ALL';
-  startDate?: string;
-  endDate?: string;
+  searchTerm?: string;
   tags?: string[];
+  dateRange?: {
+    startDate: string | null;
+    endDate: string | null;
+  };
 }
 
-export interface ProjectSortOptions {
-  field: keyof Project;
-  direction: 'asc' | 'desc';
+/**
+ * Sort options for projects
+ */
+export type ProjectSortOption = 
+  | 'TITLE' 
+  | 'CREATED_DATE' 
+  | 'DUE_DATE' 
+  | 'PRIORITY' 
+  | 'PROGRESS';
+
+/**
+ * Sort direction
+ */
+export type SortDirection = 'ASC' | 'DESC';
+
+/**
+ * Project sort configuration
+ */
+export interface ProjectSortConfig {
+  option: ProjectSortOption;
+  direction: SortDirection;
 }
