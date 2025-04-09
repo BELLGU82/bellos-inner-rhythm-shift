@@ -59,7 +59,7 @@ const Dashboard = () => {
               </div>
             </div>
             <div className="mt-6 flex gap-4">
-              <NeumorphButton variant="primary" icon={<Play size={16} />}>
+              <NeumorphButton variant="primary" icon={<Play size={16} />} className="text-pink-500">
                 Start Now
               </NeumorphButton>
               <NeumorphButton variant="outlined">Delegate</NeumorphButton>
