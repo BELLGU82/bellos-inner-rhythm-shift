@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
 type Language = 'en' | 'he';
@@ -156,6 +157,51 @@ const translations: Record<string, Record<string, string>> = {
   'add_to_calendar': {
     en: 'Add to Calendar',
     he: 'הוסף ליומן'
+  },
+  // Documents Vault translations
+  'documents_vault': {
+    en: 'Documents Vault',
+    he: 'מאגר מסמכים'
+  },
+  'upload_files': {
+    en: 'Drag and drop files here or click to browse',
+    he: 'גרור ושחרר קבצים כאן או לחץ לעיון'
+  },
+  'supports_formats': {
+    en: 'Supports all document and image formats',
+    he: 'תומך בכל תבניות המסמכים והתמונות'
+  },
+  'search_documents': {
+    en: 'Search documents...',
+    he: 'חפש מסמכים...'
+  },
+  'enable_summary': {
+    en: 'Enable Auto-Summary',
+    he: 'הפעל סיכום אוטומטי'
+  },
+  'no_documents': {
+    en: 'No documents found',
+    he: 'לא נמצאו מסמכים'
+  },
+  'adjust_search': {
+    en: 'Try adjusting your search or filters',
+    he: 'נסה להתאים את החיפוש או המסננים שלך'
+  },
+  'upload_first': {
+    en: 'Upload your first document to get started',
+    he: 'העלה את המסמך הראשון שלך כדי להתחיל'
+  },
+  'view_document': {
+    en: 'View document',
+    he: 'צפה במסמך'
+  },
+  'assign_to_task': {
+    en: 'Assign to task',
+    he: 'הקצה למשימה'
+  },
+  'delete_document': {
+    en: 'Delete document',
+    he: 'מחק מסמך'
   }
 };
 
