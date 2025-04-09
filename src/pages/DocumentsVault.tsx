@@ -3,7 +3,7 @@ import React, { useState, useRef } from 'react';
 import { File, FileText, Image, FilePlus, Search, Tag, Trash2, ExternalLink, ClipboardList } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Input } from '@/components/ui/input';
-import { NeumorphCard } from '@/components/NeumorphCard';
+import NeumorphCard from '@/components/NeumorphCard';
 import { cn } from '@/lib/utils';
 
 type Document = {

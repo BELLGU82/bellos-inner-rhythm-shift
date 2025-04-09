@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { NeumorphCard } from '@/components/NeumorphCard';
-import { NeumorphButton } from '@/components/NeumorphButton';
+import NeumorphCard from '@/components/NeumorphCard';
+import NeumorphButton from '@/components/NeumorphButton';
 import { cn } from '@/lib/utils';
 import { CheckCircle, Globe, Palette, Circle, Activity, Shield, Bot } from 'lucide-react';
 

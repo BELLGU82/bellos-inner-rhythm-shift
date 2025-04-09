@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-import { NeumorphCard } from '@/components/NeumorphCard';
+import NeumorphCard from '@/components/NeumorphCard';
 import { ArrowUp, Trash2, Calendar, FolderPlus, UserPlus, Star } from 'lucide-react';
 
 type InboxItem = {

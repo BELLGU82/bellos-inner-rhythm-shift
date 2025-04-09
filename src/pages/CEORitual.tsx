@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { Palette, Crown, Wind, ArrowRight, Check } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { NeumorphCard } from '@/components/NeumorphCard';
-import { NeumorphButton } from '@/components/NeumorphButton';
+import NeumorphCard from '@/components/NeumorphCard';
+import NeumorphButton from '@/components/NeumorphButton';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,13 +31,13 @@ const CEORitual: React.FC = () => {
   const handleFocusAreaChange = (index: number, value: string) => {
     const newFocusAreas = [...ritualData.focusAreas];
     newFocusAreas[index] = value;
-    setRitualData({ ...ritualData, focusAreas });
+    setRitualData({ ...ritualData, focusAreas: newFocusAreas });
   };
 
   const handleNotDoingChange = (index: number, value: string) => {
     const newNotDoingItems = [...ritualData.notDoingItems];
     newNotDoingItems[index] = value;
-    setRitualData({ ...ritualData, notDoingItems });
+    setRitualData({ ...ritualData, notDoingItems: newNotDoingItems });
   };
 
   const addNotDoingItem = () => {
@@ -52,7 +52,7 @@ const CEORitual: React.FC = () => {
   const removeNotDoingItem = (index: number) => {
     if (ritualData.notDoingItems.length > 1) {
       const newNotDoingItems = ritualData.notDoingItems.filter((_, i) => i !== index);
-      setRitualData({ ...ritualData, notDoingItems });
+      setRitualData({ ...ritualData, notDoingItems: newNotDoingItems });
     }
   };
 
