@@ -142,7 +142,7 @@ const IdentityCore = () => {
               <textarea value={dailyReflection} onChange={e => setDailyReflection(e.target.value)} placeholder="כתבי את התשובה שלך כאן..." className="bell-input w-full h-32 resize-none"></textarea>
               
               <div className="flex justify-end mt-4">
-                <NeumorphButton variant="primary" icon={<Check size={16} />}>
+                <NeumorphButton variant="primary" icon={<Check size={16} />} className="text-base font-light">
                   שמור רפלקציה
                 </NeumorphButton>
               </div>
