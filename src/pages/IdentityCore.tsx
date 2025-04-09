@@ -167,7 +167,7 @@ const IdentityCore = () => {
                   <textarea value={affirmation} onChange={e => setAffirmation(e.target.value)} className="bell-input w-full h-24 resize-none"></textarea>
                   
                   <div className="flex justify-end">
-                    <NeumorphButton variant="primary" size="sm" icon={<Check size={14} />} onClick={() => setEditingAffirmation(false)}>
+                    <NeumorphButton variant="primary" size="sm" icon={<Check size={14} />} onClick={() => setEditingAffirmation(false)} className="text-base font-light">
                       שמור
                     </NeumorphButton>
                   </div>
