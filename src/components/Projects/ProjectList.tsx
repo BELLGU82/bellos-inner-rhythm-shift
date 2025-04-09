@@ -1,971 +1,948 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
-  Paper,
   Button,
-  TextField,
+  Card,
+  CardContent,
   Grid,
+  TextField,
+  MenuItem,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  MenuItem,
-  Select,
+  Chip,
+  LinearProgress,
+  Tabs,
+  Tab,
+  Divider,
+  CircularProgress,
+  Snackbar,
+  Alert,
+  Tooltip,
   FormControl,
   InputLabel,
-  Chip,
-  Card,
-  CardContent,
-  CardActions,
-  LinearProgress,
-  InputAdornment,
-  Tooltip,
-  CircularProgress,
-  FormControlLabel,
-  Switch,
-  Divider,
-  Alert,
-  Collapse
+  Select,
+  FormHelperText,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Checkbox,
+  Badge,
+  AppBar,
+  Toolbar,
 } from '@mui/material';
-import { 
-  Add as AddIcon, 
-  Edit as EditIcon, 
-  Delete as DeleteIcon, 
-  Search as SearchIcon,
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  CheckCircle as CheckCircleIcon,
   FilterList as FilterListIcon,
-  Sort as SortIcon,
-  Check as CheckIcon,
-  Close as CloseIcon,
-  Refresh as RefreshIcon,
-  ArrowDropDown as ArrowDropDownIcon,
-  ArrowDropUp as ArrowDropUpIcon,
-  CalendarToday as CalendarTodayIcon,
+  Search as SearchIcon,
+  SortByAlpha as SortIcon,
+  Assignment as AssignmentIcon,
+  Flag as FlagIcon,
+  StarBorder as StarBorderIcon,
+  Star as StarIcon,
+  Timeline as TimelineIcon,
   MoreVert as MoreVertIcon,
-  Flag as FlagIcon
+  DateRange as DateRangeIcon,
+  Folder as FolderIcon,
+  PlaylistAddCheck as PlaylistAddCheckIcon,
 } from '@mui/icons-material';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-import { formatDistanceToNow } from 'date-fns';
-import he from 'date-fns/locale/he';
-import { v4 as uuidv4 } from 'uuid';
-import { ProjectService } from '../../services/ProjectService';
-import { Project, ProjectStatus, ProjectPriority } from '../../types/Project';
+import ProjectService, { Project, ProjectStatus } from '../../services/ProjectService';
+import { formatDate } from '../../utils/dateUtils';
+import EmptyState from '../common/EmptyState';
+import { useTheme } from '@mui/material/styles';
 
-// Project List Component
-const ProjectList: React.FC = () => {
-  // State for projects
+interface ProjectFormData {
+  id?: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  status: ProjectStatus;
+  priority: 'low' | 'medium' | 'high';
+  milestones: { title: string; completed: boolean }[];
+}
+
+interface ProjectListProps {
+  onProjectSelect?: (project: Project) => void;
+}
+
+const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect }) => {
+  const theme = useTheme();
   const [projects, setProjects] = useState<Project[]>([]);
-  const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  
-  // State for project form
-  const [openForm, setOpenForm] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  
-  // State for filters
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'ALL'>('ALL');
-  const [priorityFilter, setPriorityFilter] = useState<ProjectPriority | 'ALL'>('ALL');
-  const [showFilters, setShowFilters] = useState(false);
-  
-  // State for sorting
-  const [sortField, setSortField] = useState<keyof Project>('dueDate');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  
-  // Form validation
-  const [formErrors, setFormErrors] = useState<{
-    title?: string;
-    description?: string;
-    dueDate?: string;
-  }>({});
-
-  // Deletion confirmation
-  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
-
-  // Alert state
-  const [alertOpen, setAlertOpen] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [alertType, setAlertType] = useState<'success' | 'error' | 'info'>('success');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [openDialog, setOpenDialog] = useState<boolean>(false);
+  const [currentProject, setCurrentProject] = useState<ProjectFormData>({
+    title: '',
+    description: '',
+    dueDate: '',
+    status: 'not_started',
+    priority: 'medium',
+    milestones: [],
+  });
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('dueDate');
+  const [milestoneTitle, setMilestoneTitle] = useState<string>('');
+  const [currentTab, setCurrentTab] = useState<number>(0);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'info' | 'warning',
+  });
 
   // Load projects
   useEffect(() => {
+    const loadProjects = async () => {
+      setLoading(true);
+      try {
+        const projectsData = await ProjectService.getAllProjects();
+        setProjects(projectsData);
+      } catch (error) {
+        console.error('Failed to load projects:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to load projects. Please try again.',
+          severity: 'error',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
     loadProjects();
   }, []);
 
-  // Apply filters whenever filter states change
-  useEffect(() => {
-    applyFilters();
-  }, [projects, searchTerm, statusFilter, priorityFilter, sortField, sortDirection]);
-
-  const loadProjects = async () => {
-    setLoading(true);
-    try {
-      const data = await ProjectService.getProjects();
-      setProjects(data);
-      setError(null);
-    } catch (err) {
-      console.error('Error loading projects:', err);
-      setError('Failed to load projects. Please try again later.');
-      setProjects([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOpenForm = (project?: Project) => {
-    if (project) {
-      setCurrentProject(project);
-      setIsEditMode(true);
-    } else {
-      setCurrentProject({
-        id: uuidv4(),
-        title: '',
-        description: '',
-        status: 'NOT_STARTED',
-        priority: 'MEDIUM',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // Default 1 week
-        completedAt: null,
-        progress: 0,
-        tags: [],
-        milestones: []
-      });
-      setIsEditMode(false);
-    }
-    setFormErrors({});
-    setOpenForm(true);
-  };
-
-  const handleCloseForm = () => {
-    setOpenForm(false);
-    setCurrentProject(null);
-  };
-
-  const validateForm = (): boolean => {
-    const errors: {
-      title?: string;
-      description?: string;
-      dueDate?: string;
-    } = {};
-
-    if (!currentProject?.title.trim()) {
-      errors.title = 'שם הפרויקט הינו שדה חובה';
-    }
-
-    if (!currentProject?.description.trim()) {
-      errors.description = 'תיאור הפרויקט הינו שדה חובה';
-    }
-
-    if (!currentProject?.dueDate) {
-      errors.dueDate = 'תאריך יעד הינו שדה חובה';
-    }
-
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSaveProject = async () => {
-    if (!currentProject || !validateForm()) return;
-
-    setLoading(true);
-    try {
-      const updatedProject = {
-        ...currentProject,
-        updatedAt: new Date().toISOString()
-      };
-
-      if (isEditMode) {
-        await ProjectService.updateProject(updatedProject);
-        setProjects(prevProjects =>
-          prevProjects.map(p => (p.id === updatedProject.id ? updatedProject : p))
-        );
-        showAlert('הפרויקט עודכן בהצלחה', 'success');
-      } else {
-        await ProjectService.addProject(updatedProject);
-        setProjects(prevProjects => [...prevProjects, updatedProject]);
-        showAlert('הפרויקט נוסף בהצלחה', 'success');
-      }
-      
-      handleCloseForm();
-    } catch (err) {
-      console.error('Error saving project:', err);
-      showAlert('שגיאה בשמירת הפרויקט', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteProject = async () => {
-    if (!projectToDelete) return;
-
-    setLoading(true);
-    try {
-      await ProjectService.deleteProject(projectToDelete);
-      setProjects(prevProjects => prevProjects.filter(p => p.id !== projectToDelete));
-      showAlert('הפרויקט נמחק בהצלחה', 'success');
-    } catch (err) {
-      console.error('Error deleting project:', err);
-      showAlert('שגיאה במחיקת הפרויקט', 'error');
-    } finally {
-      setLoading(false);
-      setOpenDeleteDialog(false);
-      setProjectToDelete(null);
-    }
-  };
-
-  const handleUpdateStatus = async (projectId: string, newStatus: ProjectStatus) => {
-    setLoading(true);
-    try {
-      const projectToUpdate = projects.find(p => p.id === projectId);
-      if (!projectToUpdate) return;
-
-      const updatedProject = {
-        ...projectToUpdate,
-        status: newStatus,
-        updatedAt: new Date().toISOString(),
-        completedAt: newStatus === 'COMPLETED' ? new Date().toISOString() : null,
-        progress: newStatus === 'COMPLETED' ? 100 : projectToUpdate.progress
-      };
-
-      await ProjectService.updateProject(updatedProject);
-      setProjects(prevProjects =>
-        prevProjects.map(p => (p.id === projectId ? updatedProject : p))
-      );
-      showAlert('סטטוס הפרויקט עודכן בהצלחה', 'success');
-    } catch (err) {
-      console.error('Error updating project status:', err);
-      showAlert('שגיאה בעדכון סטטוס הפרויקט', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateProgress = async (projectId: string, progress: number) => {
-    setLoading(true);
-    try {
-      const projectToUpdate = projects.find(p => p.id === projectId);
-      if (!projectToUpdate) return;
-
-      const newStatus = progress === 100 ? 'COMPLETED' : 
-                        progress > 0 ? 'IN_PROGRESS' : 
-                        'NOT_STARTED';
-
-      const updatedProject = {
-        ...projectToUpdate,
-        progress,
-        status: newStatus,
-        updatedAt: new Date().toISOString(),
-        completedAt: newStatus === 'COMPLETED' ? new Date().toISOString() : null
-      };
-
-      await ProjectService.updateProject(updatedProject);
-      setProjects(prevProjects =>
-        prevProjects.map(p => (p.id === projectId ? updatedProject : p))
-      );
-      showAlert('התקדמות הפרויקט עודכנה בהצלחה', 'success');
-    } catch (err) {
-      console.error('Error updating project progress:', err);
-      showAlert('שגיאה בעדכון התקדמות הפרויקט', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const applyFilters = () => {
+  // Filter and sort projects
+  const filteredProjects = useMemo(() => {
     let result = [...projects];
 
-    // Apply search filter
+    // Search filter
     if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
       result = result.filter(
-        project =>
-          project.title.toLowerCase().includes(searchLower) ||
-          project.description.toLowerCase().includes(searchLower) ||
-          project.tags.some(tag => tag.toLowerCase().includes(searchLower))
+        (project) =>
+          project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          project.description.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    // Apply status filter
-    if (statusFilter !== 'ALL') {
-      result = result.filter(project => project.status === statusFilter);
+    // Status filter
+    if (filterStatus !== 'all') {
+      result = result.filter((project) => project.status === filterStatus);
     }
 
-    // Apply priority filter
-    if (priorityFilter !== 'ALL') {
-      result = result.filter(project => project.priority === priorityFilter);
-    }
+    // Tab filter (0: Active, 1: Completed)
+    result = result.filter((project) => 
+      currentTab === 0 ? project.status !== 'completed' : project.status === 'completed'
+    );
 
-    // Apply sorting
-    result = result.sort((a, b) => {
-      const aValue = a[sortField];
-      const bValue = b[sortField];
-      
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortDirection === 'asc'
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
+    // Sort
+    result.sort((a, b) => {
+      switch (sortBy) {
+        case 'title':
+          return a.title.localeCompare(b.title);
+        case 'priority':
+          const priorityOrder = { high: 0, medium: 1, low: 2 };
+          return priorityOrder[a.priority as keyof typeof priorityOrder] - 
+                 priorityOrder[b.priority as keyof typeof priorityOrder];
+        case 'status':
+          return a.status.localeCompare(b.status);
+        case 'dueDate':
+        default:
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
       }
-      
-      if (aValue instanceof Date && bValue instanceof Date) {
-        return sortDirection === 'asc'
-          ? aValue.getTime() - bValue.getTime()
-          : bValue.getTime() - aValue.getTime();
-      }
-      
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
-      }
-      
-      return 0;
     });
 
-    setFilteredProjects(result);
+    return result;
+  }, [projects, searchTerm, filterStatus, sortBy, currentTab]);
+
+  // Create a new project
+  const handleCreateProject = async () => {
+    try {
+      const newProject: Omit<Project, 'id' | 'createdAt'> = {
+        title: currentProject.title,
+        description: currentProject.description,
+        dueDate: currentProject.dueDate,
+        status: currentProject.status,
+        priority: currentProject.priority,
+        progress: 0,
+        milestones: currentProject.milestones,
+      };
+
+      const created = await ProjectService.createProject(newProject);
+      setProjects([...projects, created]);
+      setSnackbar({
+        open: true,
+        message: 'Project created successfully!',
+        severity: 'success',
+      });
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Failed to create project:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to create project. Please try again.',
+        severity: 'error',
+      });
+    }
   };
 
-  const handleSort = (field: keyof Project) => {
-    setSortDirection(prev => (sortField === field && prev === 'asc' ? 'desc' : 'asc'));
-    setSortField(field);
+  // Update an existing project
+  const handleUpdateProject = async () => {
+    if (!currentProject.id) return;
+    
+    try {
+      const updatedProject: Project = {
+        id: currentProject.id,
+        title: currentProject.title,
+        description: currentProject.description,
+        dueDate: currentProject.dueDate,
+        status: currentProject.status,
+        priority: currentProject.priority,
+        progress: projects.find(p => p.id === currentProject.id)?.progress || 0,
+        milestones: currentProject.milestones,
+        createdAt: projects.find(p => p.id === currentProject.id)?.createdAt || new Date().toISOString(),
+      };
+
+      await ProjectService.updateProject(updatedProject);
+      setProjects(projects.map(p => p.id === updatedProject.id ? updatedProject : p));
+      setSnackbar({
+        open: true,
+        message: 'Project updated successfully!',
+        severity: 'success',
+      });
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Failed to update project:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update project. Please try again.',
+        severity: 'error',
+      });
+    }
   };
 
-  const handleOpenDeleteDialog = (projectId: string) => {
-    setProjectToDelete(projectId);
-    setOpenDeleteDialog(true);
+  // Delete a project
+  const handleDeleteProject = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this project?')) {
+      try {
+        await ProjectService.deleteProject(id);
+        setProjects(projects.filter(p => p.id !== id));
+        setSnackbar({
+          open: true,
+          message: 'Project deleted successfully!',
+          severity: 'success',
+        });
+      } catch (error) {
+        console.error('Failed to delete project:', error);
+        setSnackbar({
+          open: true,
+          message: 'Failed to delete project. Please try again.',
+          severity: 'error',
+        });
+      }
+    }
   };
 
-  const handleCloseDeleteDialog = () => {
-    setOpenDeleteDialog(false);
-    setProjectToDelete(null);
+  // Update project progress
+  const handleUpdateProgress = async (project: Project, progress: number) => {
+    try {
+      await ProjectService.updateProgress(project.id, progress);
+      setProjects(
+        projects.map(p => 
+          p.id === project.id ? { ...p, progress } : p
+        )
+      );
+    } catch (error) {
+      console.error('Failed to update progress:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update progress. Please try again.',
+        severity: 'error',
+      });
+    }
   };
 
-  const showAlert = (message: string, type: 'success' | 'error' | 'info') => {
-    setAlertMessage(message);
-    setAlertType(type);
-    setAlertOpen(true);
-    setTimeout(() => setAlertOpen(false), 5000);
+  // Complete a project
+  const handleCompleteProject = async (id: string) => {
+    try {
+      await ProjectService.completeProject(id);
+      setProjects(
+        projects.map(p => 
+          p.id === id ? { ...p, status: 'completed', progress: 100 } : p
+        )
+      );
+      setSnackbar({
+        open: true,
+        message: 'Project marked as completed!',
+        severity: 'success',
+      });
+    } catch (error) {
+      console.error('Failed to complete project:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to complete project. Please try again.',
+        severity: 'error',
+      });
+    }
   };
 
+  // Add a milestone to current project
+  const handleAddMilestone = () => {
+    if (!milestoneTitle.trim()) return;
+    
+    setCurrentProject({
+      ...currentProject,
+      milestones: [
+        ...currentProject.milestones,
+        { title: milestoneTitle, completed: false }
+      ]
+    });
+    setMilestoneTitle('');
+  };
+
+  // Remove a milestone from current project
+  const handleRemoveMilestone = (index: number) => {
+    setCurrentProject({
+      ...currentProject,
+      milestones: currentProject.milestones.filter((_, i) => i !== index)
+    });
+  };
+
+  // Toggle milestone completion
+  const handleToggleMilestone = async (projectId: string, milestoneIndex: number) => {
+    try {
+      const project = projects.find(p => p.id === projectId);
+      if (!project) return;
+      
+      const updatedMilestones = [...project.milestones];
+      updatedMilestones[milestoneIndex].completed = !updatedMilestones[milestoneIndex].completed;
+      
+      await ProjectService.updateProject({
+        ...project,
+        milestones: updatedMilestones
+      });
+      
+      // Update local state
+      setProjects(
+        projects.map(p => 
+          p.id === projectId ? { ...p, milestones: updatedMilestones } : p
+        )
+      );
+      
+      // Update progress based on completed milestones
+      const completedCount = updatedMilestones.filter(m => m.completed).length;
+      const totalCount = updatedMilestones.length;
+      const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+      
+      handleUpdateProgress({ ...project, milestones: updatedMilestones }, progress);
+    } catch (error) {
+      console.error('Failed to toggle milestone:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update milestone. Please try again.',
+        severity: 'error',
+      });
+    }
+  };
+
+  // Dialog handlers
+  const handleOpenCreateDialog = () => {
+    setCurrentProject({
+      title: '',
+      description: '',
+      dueDate: '',
+      status: 'not_started',
+      priority: 'medium',
+      milestones: [],
+    });
+    setOpenDialog(true);
+  };
+
+  const handleOpenEditDialog = (project: Project) => {
+    setCurrentProject({
+      id: project.id,
+      title: project.title,
+      description: project.description,
+      dueDate: project.dueDate,
+      status: project.status,
+      priority: project.priority,
+      milestones: [...project.milestones],
+    });
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setCurrentProject({
+      title: '',
+      description: '',
+      dueDate: '',
+      status: 'not_started',
+      priority: 'medium',
+      milestones: [],
+    });
+    setMilestoneTitle('');
+  };
+
+  // Handlers for form inputs
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+    const { name, value } = e.target;
+    setCurrentProject({
+      ...currentProject,
+      [name as string]: value,
+    });
+  };
+
+  // Get status color
   const getStatusColor = (status: ProjectStatus) => {
     switch (status) {
-      case 'NOT_STARTED': return '#9e9e9e';
-      case 'IN_PROGRESS': return '#2196f3';
-      case 'ON_HOLD': return '#ff9800';
-      case 'COMPLETED': return '#4caf50';
-      case 'CANCELLED': return '#f44336';
-      default: return '#9e9e9e';
+      case 'not_started':
+        return theme.palette.info.main;
+      case 'in_progress':
+        return theme.palette.warning.main;
+      case 'on_hold':
+        return theme.palette.error.light;
+      case 'completed':
+        return theme.palette.success.main;
+      default:
+        return theme.palette.primary.main;
     }
   };
 
-  const getPriorityColor = (priority: ProjectPriority) => {
+  // Get priority color
+  const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'LOW': return '#8bc34a';
-      case 'MEDIUM': return '#ff9800';
-      case 'HIGH': return '#f44336';
-      default: return '#9e9e9e';
+      case 'high':
+        return theme.palette.error.main;
+      case 'medium':
+        return theme.palette.warning.main;
+      case 'low':
+        return theme.palette.success.main;
+      default:
+        return theme.palette.text.secondary;
     }
   };
 
-  const getStatusText = (status: ProjectStatus) => {
-    switch (status) {
-      case 'NOT_STARTED': return 'טרם התחיל';
-      case 'IN_PROGRESS': return 'בתהליך';
-      case 'ON_HOLD': return 'בהמתנה';
-      case 'COMPLETED': return 'הושלם';
-      case 'CANCELLED': return 'בוטל';
-      default: return status;
-    }
+  // Handler for tab change
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+    setCurrentTab(newValue);
   };
 
-  const getPriorityText = (priority: ProjectPriority) => {
-    switch (priority) {
-      case 'LOW': return 'נמוכה';
-      case 'MEDIUM': return 'בינונית';
-      case 'HIGH': return 'גבוהה';
-      default: return priority;
-    }
+  // Close snackbar
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
   };
 
-  const formatDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('he-IL');
-    } catch (error) {
-      return 'תאריך לא תקין';
-    }
-  };
-
-  const calculateDaysLeft = (dueDate: string) => {
+  // Calculate due dates and styling
+  const getDueStatus = (dueDate: string) => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
     const due = new Date(dueDate);
+    due.setHours(0, 0, 0, 0);
+    
     const diffTime = due.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    return diffDays;
+    if (diffDays < 0) return { color: 'error.main', text: 'Overdue' };
+    if (diffDays === 0) return { color: 'warning.main', text: 'Today' };
+    if (diffDays <= 3) return { color: 'warning.light', text: `${diffDays} days left` };
+    return { color: 'success.main', text: `${diffDays} days left` };
   };
 
-  // Compute project stats
-  const projectStats = useMemo(() => {
-    const total = projects.length;
-    const completed = projects.filter(p => p.status === 'COMPLETED').length;
-    const inProgress = projects.filter(p => p.status === 'IN_PROGRESS').length;
-    const notStarted = projects.filter(p => p.status === 'NOT_STARTED').length;
-    const onHold = projects.filter(p => p.status === 'ON_HOLD').length;
-    const cancelled = projects.filter(p => p.status === 'CANCELLED').length;
-    
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    
-    return {
-      total,
-      completed,
-      inProgress,
-      notStarted,
-      onHold,
-      cancelled,
-      completionRate
-    };
-  }, [projects]);
-
   return (
-    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={he}>
-      <Box sx={{ p: 3, width: '100%' }}>
-        {/* Alert for notifications */}
-        <Collapse in={alertOpen}>
-          <Alert 
-            severity={alertType}
-            sx={{ mb: 2 }}
-            action={
-              <IconButton
-                aria-label="close"
-                color="inherit"
-                size="small"
-                onClick={() => setAlertOpen(false)}
-              >
-                <CloseIcon fontSize="inherit" />
-              </IconButton>
-            }
+    <Box sx={{ width: '100%' }}>
+      {/* Header with Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+        <AppBar position="static" color="default" elevation={0}>
+          <Toolbar>
+            <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+              <FolderIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+              Project Management
+            </Typography>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={<AddIcon />}
+              onClick={handleOpenCreateDialog}
+            >
+              New Project
+            </Button>
+          </Toolbar>
+          <Tabs 
+            value={currentTab} 
+            onChange={handleTabChange}
+            indicatorColor="primary"
+            textColor="primary"
           >
-            {alertMessage}
-          </Alert>
-        </Collapse>
-
-        {/* Header */}
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h4" component="h1" gutterBottom>
-            ניהול פרויקטים
-          </Typography>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenForm()}
-            disabled={loading}
-          >
-            פרויקט חדש
-          </Button>
-        </Box>
-
-        {/* Project Statistics */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            סטטיסטיקות פרויקטים
-          </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={6} sm={4} md={2}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2">סה"כ פרויקטים</Typography>
-                <Typography variant="h5">{projectStats.total}</Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={6} sm={4} md={2}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2">הושלמו</Typography>
-                <Typography variant="h5" sx={{ color: 'success.main' }}>
-                  {projectStats.completed}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={6} sm={4} md={2}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2">בתהליך</Typography>
-                <Typography variant="h5" sx={{ color: 'info.main' }}>
-                  {projectStats.inProgress}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={6} sm={4} md={2}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2">טרם התחילו</Typography>
-                <Typography variant="h5" sx={{ color: 'text.secondary' }}>
-                  {projectStats.notStarted}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={6} sm={4} md={2}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2">בהמתנה</Typography>
-                <Typography variant="h5" sx={{ color: 'warning.main' }}>
-                  {projectStats.onHold}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={6} sm={4} md={2}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography variant="body2">אחוז השלמה</Typography>
-                <Typography variant="h5" sx={{ color: 'primary.main' }}>
-                  {projectStats.completionRate}%
-                </Typography>
-              </Box>
-            </Grid>
+            <Tab 
+              label={
+                <Badge 
+                  badgeContent={projects.filter(p => p.status !== 'completed').length} 
+                  color="primary"
+                >
+                  Active Projects
+                </Badge>
+              } 
+            />
+            <Tab 
+              label={
+                <Badge 
+                  badgeContent={projects.filter(p => p.status === 'completed').length} 
+                  color="success"
+                >
+                  Completed Projects
+                </Badge>
+              } 
+            />
+          </Tabs>
+        </AppBar>
+      </Box>
+      
+      {/* Filters and Search Row */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={4}>
+            <TextField
+              fullWidth
+              placeholder="Search projects..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />,
+              }}
+              size="small"
+            />
           </Grid>
-        </Paper>
-
-        {/* Filters */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <TextField
-                label="חיפוש פרויקטים"
-                variant="outlined"
-                size="small"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                sx={{ mr: 2, width: 250 }}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-              <Button
-                variant="outlined"
-                startIcon={<FilterListIcon />}
-                onClick={() => setShowFilters(!showFilters)}
-                sx={{ mr: 2 }}
+          <Grid item xs={12} sm={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Filter by Status</InputLabel>
+              <Select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                label="Filter by Status"
+                startAdornment={<FilterListIcon sx={{ mr: 1, color: 'text.secondary' }} />}
               >
-                סינון
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<RefreshIcon />}
-                onClick={loadProjects}
-                disabled={loading}
+                <MenuItem value="all">All Statuses</MenuItem>
+                <MenuItem value="not_started">Not Started</MenuItem>
+                <MenuItem value="in_progress">In Progress</MenuItem>
+                <MenuItem value="on_hold">On Hold</MenuItem>
+                {currentTab === 1 && <MenuItem value="completed">Completed</MenuItem>}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Sort by</InputLabel>
+              <Select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                label="Sort by"
+                startAdornment={<SortIcon sx={{ mr: 1, color: 'text.secondary' }} />}
               >
-                רענון
-              </Button>
-            </Box>
-            <Box>
-              <Button
-                variant="text"
-                color="primary"
-                size="small"
-                endIcon={sortDirection === 'asc' ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-                onClick={() => handleSort('dueDate')}
+                <MenuItem value="dueDate">Due Date</MenuItem>
+                <MenuItem value="title">Title</MenuItem>
+                <MenuItem value="priority">Priority</MenuItem>
+                <MenuItem value="status">Status</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={2}>
+            <Typography variant="body2" color="text.secondary">
+              {filteredProjects.length} projects
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
+      
+      {/* Projects List */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : filteredProjects.length === 0 ? (
+        <EmptyState
+          icon={<AssignmentIcon sx={{ fontSize: 60 }} />}
+          title={
+            searchTerm || filterStatus !== 'all'
+              ? "No projects match your filters"
+              : currentTab === 0
+              ? "No active projects"
+              : "No completed projects"
+          }
+          description={
+            searchTerm || filterStatus !== 'all'
+              ? "Try changing your search or filter criteria"
+              : currentTab === 0
+              ? "Start by creating your first project"
+              : "Complete some projects to see them here"
+          }
+          actionText={searchTerm || filterStatus !== 'all' ? "Clear filters" : "Create a project"}
+          onAction={() => {
+            if (searchTerm || filterStatus !== 'all') {
+              setSearchTerm('');
+              setFilterStatus('all');
+            } else {
+              handleOpenCreateDialog();
+            }
+          }}
+        />
+      ) : (
+        <Grid container spacing={2}>
+          {filteredProjects.map((project) => (
+            <Grid item xs={12} key={project.id}>
+              <Card 
+                sx={{ 
+                  cursor: 'pointer',
+                  '&:hover': { boxShadow: 4 },
+                  borderLeft: `4px solid ${getStatusColor(project.status)}`,
+                }} 
+                onClick={() => onProjectSelect && onProjectSelect(project)}
               >
-                תאריך יעד
-              </Button>
-              <Button
-                variant="text"
-                color="primary"
-                size="small"
-                endIcon={sortDirection === 'asc' ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-                onClick={() => handleSort('priority')}
-              >
-                עדיפות
-              </Button>
-              <Button
-                variant="text"
-                color="primary"
-                size="small"
-                endIcon={sortDirection === 'asc' ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-                onClick={() => handleSort('status')}
-              >
-                סטטוס
-              </Button>
-            </Box>
-          </Box>
-
-          <Collapse in={showFilters}>
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>סטטוס</InputLabel>
-                  <Select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value as ProjectStatus | 'ALL')}
-                    label="סטטוס"
-                  >
-                    <MenuItem value="ALL">כל הסטטוסים</MenuItem>
-                    <MenuItem value="NOT_STARTED">טרם התחיל</MenuItem>
-                    <MenuItem value="IN_PROGRESS">בתהליך</MenuItem>
-                    <MenuItem value="ON_HOLD">בהמתנה</MenuItem>
-                    <MenuItem value="COMPLETED">הושלם</MenuItem>
-                    <MenuItem value="CANCELLED">בוטל</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth size="small">
-                  <InputLabel>עדיפות</InputLabel>
-                  <Select
-                    value={priorityFilter}
-                    onChange={(e) => setPriorityFilter(e.target.value as ProjectPriority | 'ALL')}
-                    label="עדיפות"
-                  >
-                    <MenuItem value="ALL">כל העדיפויות</MenuItem>
-                    <MenuItem value="LOW">נמוכה</MenuItem>
-                    <MenuItem value="MEDIUM">בינונית</MenuItem>
-                    <MenuItem value="HIGH">גבוהה</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
-          </Collapse>
-        </Paper>
-
-        {/* Loading and Error States */}
-        {loading && (
-          <Box sx={{ width: '100%', my: 3, textAlign: 'center' }}>
-            <CircularProgress />
-          </Box>
-        )}
-
-        {error && !loading && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
-
-        {/* Project List */}
-        {!loading && !error && (
-          <>
-            {filteredProjects.length === 0 ? (
-              <Box sx={{ textAlign: 'center', my: 5 }}>
-                <Typography variant="h6" color="textSecondary">
-                  לא נמצאו פרויקטים
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  נסו להוסיף פרויקט חדש או לשנות את סינון החיפוש
-                </Typography>
-              </Box>
-            ) : (
-              <Grid container spacing={3}>
-                {filteredProjects.map((project) => (
-                  <Grid item xs={12} sm={6} md={4} key={project.id}>
-                    <Card 
-                      sx={{
-                        height: '100%',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        position: 'relative',
-                        border: '1px solid',
-                        borderColor: getStatusColor(project.status),
-                        borderTop: `4px solid ${getStatusColor(project.status)}`
-                      }}
-                    >
-                      <CardContent sx={{ flexGrow: 1 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="h6" component="div" noWrap>
+                <CardContent>
+                  <Grid container spacing={2}>
+                    {/* Title, Status & Due Date */}
+                    <Grid item xs={12} sm={6}>
+                      <Box display="flex" alignItems="flex-start">
+                        <FolderIcon sx={{ mt: 0.5, mr: 1, color: 'primary.main' }} />
+                        <Box>
+                          <Typography variant="h6" gutterBottom component="div">
                             {project.title}
                           </Typography>
-                          <Chip 
-                            size="small"
-                            label={getPriorityText(project.priority)}
-                            sx={{ 
-                              bgcolor: getPriorityColor(project.priority),
-                              color: 'white',
-                              fontSize: '0.7rem'
-                            }}
-                          />
-                        </Box>
-                        
-                        <Chip 
-                          size="small"
-                          label={getStatusText(project.status)}
-                          sx={{ 
-                            bgcolor: getStatusColor(project.status),
-                            color: 'white',
-                            mb: 2
-                          }}
-                        />
-                        
-                        <Typography 
-                          variant="body2" 
-                          color="text.secondary"
-                          sx={{
-                            mb: 2,
-                            display: '-webkit-box',
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            height: '4.5em',
-                          }}
-                        >
-                          {project.description}
-                        </Typography>
-                        
-                        <Box sx={{ mb: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            התקדמות: {project.progress}%
-                          </Typography>
-                          <LinearProgress 
-                            variant="determinate" 
-                            value={project.progress} 
-                            sx={{ 
-                              height: 8, 
-                              borderRadius: 4,
-                              my: 1,
-                              bgcolor: 'rgba(0,0,0,0.1)'
-                            }}
-                          />
-                        </Box>
-                        
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                            <CalendarTodayIcon fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-                            <Typography variant="body2" color="text.secondary">
-                              יעד: {formatDate(project.dueDate)}
-                            </Typography>
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
+                            <Chip 
+                              size="small"
+                              label={project.status.replace('_', ' ')}
+                              sx={{
+                                backgroundColor: getStatusColor(project.status),
+                                color: 'white',
+                                textTransform: 'capitalize'
+                              }} 
+                            />
+                            <Chip 
+                              size="small"
+                              icon={<FlagIcon />} 
+                              label={project.priority}
+                              sx={{ 
+                                backgroundColor: getPriorityColor(project.priority),
+                                color: 'white',
+                                textTransform: 'capitalize'
+                              }}
+                            />
+                            <Chip 
+                              size="small"
+                              icon={<DateRangeIcon />}
+                              label={formatDate(project.dueDate)}
+                              color={project.status === 'completed' ? 'default' : getDueStatus(project.dueDate).color as any}
+                              variant="outlined"
+                            />
                           </Box>
-                          
-                          {project.status !== 'COMPLETED' && project.status !== 'CANCELLED' && (
-                            <Tooltip title="ימים שנותרו ליעד">
-                              <Chip
-                                size="small"
-                                label={`${calculateDaysLeft(project.dueDate)} ימים`}
-                                color={calculateDaysLeft(project.dueDate) < 0 ? 'error' : 
-                                      calculateDaysLeft(project.dueDate) < 3 ? 'warning' : 'default'}
-                                sx={{ fontSize: '0.7rem' }}
-                              />
+                        </Box>
+                      </Box>
+                    </Grid>
+                    
+                    {/* Progress & Milestones */}
+                    <Grid item xs={12} sm={3}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Progress: {project.progress}%
+                      </Typography>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={project.progress} 
+                        sx={{ 
+                          height: 8, 
+                          borderRadius: 5,
+                          mb: 1
+                        }} 
+                      />
+                      <Typography variant="body2" color="text.secondary">
+                        <PlaylistAddCheckIcon sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
+                        {project.milestones.filter(m => m.completed).length} of {project.milestones.length} milestones completed
+                      </Typography>
+                    </Grid>
+                    
+                    {/* Actions */}
+                    <Grid item xs={12} sm={3} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Box>
+                        {project.status !== 'completed' && (
+                          <>
+                            <Tooltip title="Edit">
+                              <IconButton 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenEditDialog(project);
+                                }}
+                              >
+                                <EditIcon />
+                              </IconButton>
                             </Tooltip>
-                          )}
-                        </Box>
-                        
-                        {project.tags && project.tags.length > 0 && (
-                          <Box sx={{ mt: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {project.tags.map((tag, index) => (
-                              <Chip
-                                key={index}
-                                size="small"
-                                label={tag}
-                                sx={{ fontSize: '0.7rem' }}
-                              />
-                            ))}
-                          </Box>
+                            <Tooltip title="Mark as Complete">
+                              <IconButton 
+                                color="success" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCompleteProject(project.id);
+                                }}
+                              >
+                                <CheckCircleIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </>
                         )}
-                      </CardContent>
-
-                      <CardActions sx={{ p: 2, pt: 0 }}>
-                        <Button
-                          size="small"
-                          color="primary"
-                          onClick={() => handleOpenForm(project)}
-                          startIcon={<EditIcon />}
-                        >
-                          עריכה
-                        </Button>
-                        <Button
-                          size="small"
-                          color="error"
-                          onClick={() => handleOpenDeleteDialog(project.id)}
-                          startIcon={<DeleteIcon />}
-                        >
-                          מחיקה
-                        </Button>
-                        {project.status !== 'COMPLETED' && (
-                          <Button
-                            size="small"
-                            color="success"
-                            onClick={() => handleUpdateStatus(project.id, 'COMPLETED')}
-                            startIcon={<CheckIcon />}
+                        <Tooltip title="Delete">
+                          <IconButton 
+                            color="error" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteProject(project.id);
+                            }}
                           >
-                            סיום
-                          </Button>
-                        )}
-                      </CardActions>
-                    </Card>
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </Grid>
+                    
+                    {/* Description & Milestones */}
+                    <Grid item xs={12}>
+                      <Typography variant="body2" color="text.secondary" paragraph>
+                        {project.description.length > 150 
+                          ? `${project.description.substring(0, 150)}...` 
+                          : project.description}
+                      </Typography>
+                      
+                      {project.milestones.length > 0 && (
+                        <Box sx={{ mt: 1 }}>
+                          <Typography variant="subtitle2" gutterBottom>
+                            <TimelineIcon sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
+                            Milestones:
+                          </Typography>
+                          <List dense disablePadding>
+                            {project.milestones.slice(0, 3).map((milestone, index) => (
+                              <ListItem 
+                                key={index} 
+                                disablePadding
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleMilestone(project.id, index);
+                                }}
+                                sx={{ 
+                                  py: 0.5,
+                                  cursor: 'pointer',
+                                  '&:hover': { bgcolor: 'action.hover' }
+                                }}
+                              >
+                                <ListItemIcon sx={{ minWidth: 36 }}>
+                                  <Checkbox 
+                                    edge="start"
+                                    checked={milestone.completed}
+                                    disableRipple
+                                    size="small"
+                                  />
+                                </ListItemIcon>
+                                <ListItemText 
+                                  primary={milestone.title}
+                                  primaryTypographyProps={{
+                                    variant: 'body2',
+                                    style: milestone.completed ? { textDecoration: 'line-through' } : undefined
+                                  }}
+                                />
+                              </ListItem>
+                            ))}
+                            {project.milestones.length > 3 && (
+                              <ListItem>
+                                <ListItemText 
+                                  primary={`+ ${project.milestones.length - 3} more milestones`} 
+                                  primaryTypographyProps={{
+                                    variant: 'body2',
+                                    color: 'text.secondary'
+                                  }}
+                                />
+                              </ListItem>
+                            )}
+                          </List>
+                        </Box>
+                      )}
+                    </Grid>
                   </Grid>
-                ))}
-              </Grid>
-            )}
-          </>
-        )}
-
-        {/* Project Form Dialog */}
-        <Dialog open={openForm} onClose={handleCloseForm} maxWidth="md" fullWidth>
-          <DialogTitle>
-            {isEditMode ? 'עריכת פרויקט' : 'הוספת פרויקט חדש'}
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  label="שם הפרויקט"
-                  fullWidth
-                  value={currentProject?.title || ''}
-                  onChange={(e) => setCurrentProject(prev => 
-                    prev ? { ...prev, title: e.target.value } : null
-                  )}
-                  error={!!formErrors.title}
-                  helperText={formErrors.title}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  label="תיאור הפרויקט"
-                  fullWidth
-                  multiline
-                  rows={4}
-                  value={currentProject?.description || ''}
-                  onChange={(e) => setCurrentProject(prev => 
-                    prev ? { ...prev, description: e.target.value } : null
-                  )}
-                  error={!!formErrors.description}
-                  helperText={formErrors.description}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>סטטוס</InputLabel>
-                  <Select
-                    value={currentProject?.status || 'NOT_STARTED'}
-                    onChange={(e) => setCurrentProject(prev => 
-                      prev ? { 
-                        ...prev, 
-                        status: e.target.value as ProjectStatus,
-                        completedAt: e.target.value === 'COMPLETED' ? new Date().toISOString() : null,
-                        progress: e.target.value === 'COMPLETED' ? 100 : prev.progress
-                      } : null
-                    )}
-                    label="סטטוס"
-                  >
-                    <MenuItem value="NOT_STARTED">טרם התחיל</MenuItem>
-                    <MenuItem value="IN_PROGRESS">בתהליך</MenuItem>
-                    <MenuItem value="ON_HOLD">בהמתנה</MenuItem>
-                    <MenuItem value="COMPLETED">הושלם</MenuItem>
-                    <MenuItem value="CANCELLED">בוטל</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>עדיפות</InputLabel>
-                  <Select
-                    value={currentProject?.priority || 'MEDIUM'}
-                    onChange={(e) => setCurrentProject(prev => 
-                      prev ? { ...prev, priority: e.target.value as ProjectPriority } : null
-                    )}
-                    label="עדיפות"
-                  >
-                    <MenuItem value="LOW">נמוכה</MenuItem>
-                    <MenuItem value="MEDIUM">בינונית</MenuItem>
-                    <MenuItem value="HIGH">גבוהה</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <DatePicker
-                  label="תאריך יעד"
-                  value={currentProject?.dueDate ? new Date(currentProject.dueDate) : null}
-                  onChange={(date) => setCurrentProject(prev => 
-                    prev ? { ...prev, dueDate: date ? date.toISOString() : prev.dueDate } : null
-                  )}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      error: !!formErrors.dueDate,
-                      helperText: formErrors.dueDate
-                    }
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="אחוז התקדמות"
-                  type="number"
-                  fullWidth
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">%</InputAdornment>,
-                  }}
-                  value={currentProject?.progress || 0}
-                  onChange={(e) => {
-                    const value = Math.min(100, Math.max(0, Number(e.target.value)));
-                    setCurrentProject(prev => 
-                      prev ? { ...prev, progress: value } : null
-                    );
-                  }}
-                  inputProps={{ min: 0, max: 100 }}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  label="תגיות (מופרדות בפסיק)"
-                  fullWidth
-                  value={currentProject?.tags?.join(', ') || ''}
-                  onChange={(e) => setCurrentProject(prev => 
-                    prev ? { 
-                      ...prev, 
-                      tags: e.target.value.split(',').map(tag => tag.trim()).filter(Boolean)
-                    } : null
-                  )}
-                  placeholder="הוסף תגיות מופרדות בפסיק: לדוגמה - משימה, פיתוח, דחוף"
-                  helperText="הוסף תגיות כדי לסווג את הפרויקט"
-                />
-              </Grid>
+                </CardContent>
+              </Card>
             </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseForm} color="inherit">
-              ביטול
-            </Button>
-            <Button 
-              onClick={handleSaveProject} 
-              color="primary" 
-              variant="contained"
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : isEditMode ? 'עדכון' : 'שמירה'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Delete Confirmation Dialog */}
-        <Dialog open={openDeleteDialog} onClose={handleCloseDeleteDialog}>
-          <DialogTitle>מחיקת פרויקט</DialogTitle>
-          <DialogContent>
-            <Typography>
-              האם אתה בטוח שברצונך למחוק את הפרויקט? פעולה זו אינה ניתנת לביטול.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDeleteDialog} color="inherit">
-              ביטול
-            </Button>
-            <Button 
-              onClick={handleDeleteProject} 
-              color="error" 
-              variant="contained"
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'מחיקה'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-    </LocalizationProvider>
+          ))}
+        </Grid>
+      )}
+      
+      {/* Project Dialog */}
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          {currentProject.id ? 'Edit Project' : 'Create New Project'}
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12}>
+              <TextField
+                name="title"
+                label="Project Title"
+                fullWidth
+                required
+                value={currentProject.title}
+                onChange={handleInputChange}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                name="description"
+                label="Description"
+                multiline
+                rows={4}
+                fullWidth
+                value={currentProject.description}
+                onChange={handleInputChange}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                name="dueDate"
+                label="Due Date"
+                type="date"
+                fullWidth
+                required
+                value={currentProject.dueDate}
+                onChange={handleInputChange}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  name="status"
+                  value={currentProject.status}
+                  onChange={handleInputChange}
+                  label="Status"
+                >
+                  <MenuItem value="not_started">Not Started</MenuItem>
+                  <MenuItem value="in_progress">In Progress</MenuItem>
+                  <MenuItem value="on_hold">On Hold</MenuItem>
+                  <MenuItem value="completed">Completed</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Priority</InputLabel>
+                <Select
+                  name="priority"
+                  value={currentProject.priority}
+                  onChange={handleInputChange}
+                  label="Priority"
+                >
+                  <MenuItem value="low">Low</MenuItem>
+                  <MenuItem value="medium">Medium</MenuItem>
+                  <MenuItem value="high">High</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle1" gutterBottom>
+                <TimelineIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+                Milestones
+              </Typography>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <TextField
+                  label="Add Milestone"
+                  fullWidth
+                  value={milestoneTitle}
+                  onChange={(e) => setMilestoneTitle(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddMilestone()}
+                />
+                <Button 
+                  variant="contained" 
+                  onClick={handleAddMilestone}
+                  disabled={!milestoneTitle.trim()}
+                >
+                  Add
+                </Button>
+              </Box>
+              
+              <List>
+                {currentProject.milestones.map((milestone, index) => (
+                  <ListItem 
+                    key={index}
+                    secondaryAction={
+                      <IconButton 
+                        edge="end" 
+                        onClick={() => handleRemoveMilestone(index)}
+                        size="small"
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    }
+                  >
+                    <ListItemIcon>
+                      <Checkbox
+                        edge="start"
+                        checked={milestone.completed}
+                        onChange={() => {
+                          const updatedMilestones = [...currentProject.milestones];
+                          updatedMilestones[index].completed = !updatedMilestones[index].completed;
+                          setCurrentProject({ ...currentProject, milestones: updatedMilestones });
+                        }}
+                      />
+                    </ListItemIcon>
+                    <ListItemText primary={milestone.title} />
+                  </ListItem>
+                ))}
+                {currentProject.milestones.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ p: 2, textAlign: 'center' }}>
+                    No milestones added yet. Add some milestones to track project progress.
+                  </Typography>
+                )}
+              </List>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={currentProject.id ? handleUpdateProject : handleCreateProject}
+            disabled={!currentProject.title || !currentProject.dueDate}
+          >
+            {currentProject.id ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 };
 
