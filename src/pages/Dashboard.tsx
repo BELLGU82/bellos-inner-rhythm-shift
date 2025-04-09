@@ -104,7 +104,7 @@ const Dashboard = () => {
           <div className="flex flex-col items-center gap-4 p-4">
             <ProgressRing progress={42} size={120} color="#4a6fa5">
               <div className="text-center">
-                <div className="text-2xl font-bold">42%</div>
+                <div className="text-2xl font-medium">42%</div>
                 <div className="text-xs text-bell-muted">Day Energy</div>
               </div>
             </ProgressRing>
