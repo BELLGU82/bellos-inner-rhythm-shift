@@ -38,8 +38,7 @@
     --bell-accent: var(--accent);
     --bell-accent-foreground: var(--accent-foreground);
     --bell-subtle: var(--muted);
-    
-    --radius: 0.75rem;
+    --bell-border: var(--border);
   }
 
   .dark {
@@ -76,6 +75,7 @@
     --bell-accent: var(--accent);
     --bell-accent-foreground: var(--accent-foreground);
     --bell-subtle: var(--muted);
+    --bell-border: var(--border);
   }
   
   .adhd-mode {
@@ -164,6 +164,10 @@
   
   .hover-lift {
     @apply transition-transform hover:-translate-y-1;
+  }
+  
+  .border-bell-border {
+    border-color: hsl(var(--bell-border));
   }
 }
 
