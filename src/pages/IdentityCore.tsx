@@ -132,7 +132,7 @@ const IdentityCore = () => {
           <NeumorphCard className="animate-fade-in" style={{
           animationDelay: '0.1s'
         }}>
-            <h3 className="text-lg font-semibold mb-4 text-bell-foreground">שאלת רפלקציה יומית</h3>
+            <h3 className="text-lg mb-4 text-bell-foreground font-medium">שאלת רפלקציה יומית</h3>
             
             <div className="p-5 neumorph-inner rounded-xl">
               <p className="text-lg font-medium text-center mb-6">
@@ -220,7 +220,7 @@ const IdentityCore = () => {
         }}>
             <div className="flex items-center gap-2 mb-4">
               <Lightbulb size={18} className="text-amber-400" />
-              <h3 className="text-lg font-semibold text-bell-foreground">תובנות זהות</h3>
+              <h3 className="text-lg font-medium text-bell-foreground">תובנות זהות</h3>
             </div>
             
             <div className="space-y-3">
