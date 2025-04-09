@@ -1,277 +1,271 @@
+import api from './api';
 import { v4 as uuidv4 } from 'uuid';
-import { Project, ProjectFilter, ProjectSortConfig } from '../types/Project';
 
-// Local storage key
-const PROJECTS_STORAGE_KEY = 'projects';
+// Project status types
+export type ProjectStatus = 'not_started' | 'in_progress' | 'on_hold' | 'completed';
 
-// Default projects for new users
-const DEFAULT_PROJECTS: Project[] = [
-  {
-    id: uuidv4(),
-    title: 'תכנון שבועי',
-    description: 'ארגון המשימות השבועיות וקביעת יעדים לשבוע הקרוב',
-    status: 'IN_PROGRESS',
-    priority: 'HIGH',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    dueDate: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString(),
-    completedAt: null,
-    progress: 30,
-    tags: ['תכנון', 'שבועי', 'יעדים'],
-    milestones: [
-      {
-        id: uuidv4(),
-        title: 'הגדרת יעדים',
-        description: 'הגדרת יעדים עיקריים לשבוע',
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(),
-        completedAt: new Date().toISOString(),
-        isCompleted: true
-      },
-      {
-        id: uuidv4(),
-        title: 'תעדוף משימות',
-        description: 'תעדוף משימות לפי דחיפות וחשיבות',
-        dueDate: new Date(new Date().setDate(new Date().getDate() + 3)).toISOString(),
-        completedAt: null,
-        isCompleted: false
-      }
-    ]
-  }
-];
+// Project milestone type
+export interface ProjectMilestone {
+  title: string;
+  completed: boolean;
+}
+
+// Project data structure
+export interface Project {
+  id: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  status: ProjectStatus;
+  priority: 'low' | 'medium' | 'high';
+  progress: number;
+  milestones: ProjectMilestone[];
+  createdAt: string;
+}
 
 /**
- * Service for managing projects
+ * ProjectService - handles all project-related API operations
  */
 class ProjectService {
-  
   /**
    * Get all projects
    */
-  getAll = (): Project[] => {
-    const storedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
-    
-    if (!storedProjects) {
-      this.saveProjects(DEFAULT_PROJECTS);
-      return DEFAULT_PROJECTS;
+  async getAllProjects(): Promise<Project[]> {
+    try {
+      // Simulated API call - in production would use the actual endpoint
+      // const response = await api.get('/projects');
+      // return response.data;
+      
+      // For demo purposes, return mock data
+      return this.getMockProjects();
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+      throw error;
     }
-    
-    return JSON.parse(storedProjects);
-  };
+  }
   
   /**
    * Get project by ID
    */
-  getById = (id: string): Project | null => {
-    const projects = this.getAll();
-    return projects.find(project => project.id === id) || null;
-  };
+  async getProjectById(id: string): Promise<Project> {
+    try {
+      // Simulated API call - in production would use the actual endpoint
+      // const response = await api.get(`/projects/${id}`);
+      // return response.data;
+      
+      // For demo purposes, look up in mock data
+      const projects = this.getMockProjects();
+      const project = projects.find(p => p.id === id);
+      
+      if (!project) {
+        throw new Error(`Project with ID ${id} not found`);
+      }
+      
+      return project;
+    } catch (error) {
+      console.error(`Error fetching project ${id}:`, error);
+      throw error;
+    }
+  }
   
   /**
    * Create a new project
    */
-  create = (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): Project => {
-    const now = new Date().toISOString();
-    const newProject: Project = {
-      ...project,
-      id: uuidv4(),
-      createdAt: now,
-      updatedAt: now
-    };
-    
-    const projects = this.getAll();
-    projects.push(newProject);
-    this.saveProjects(projects);
-    
-    return newProject;
-  };
+  async createProject(project: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
+    try {
+      // Create a new project object with generated ID and timestamp
+      const newProject: Project = {
+        ...project,
+        id: uuidv4(),
+        createdAt: new Date().toISOString(),
+      };
+      
+      // Simulated API call - in production would use the actual endpoint
+      // const response = await api.post('/projects', newProject);
+      // return response.data;
+      
+      // For demo purposes, simulate successful creation
+      console.log('Project created:', newProject);
+      return newProject;
+    } catch (error) {
+      console.error('Error creating project:', error);
+      throw error;
+    }
+  }
   
   /**
    * Update an existing project
    */
-  update = (id: string, updates: Partial<Omit<Project, 'id' | 'createdAt'>>): Project | null => {
-    const projects = this.getAll();
-    const projectIndex = projects.findIndex(project => project.id === id);
-    
-    if (projectIndex === -1) {
-      return null;
+  async updateProject(project: Project): Promise<Project> {
+    try {
+      // Simulated API call - in production would use the actual endpoint
+      // const response = await api.put(`/projects/${project.id}`, project);
+      // return response.data;
+      
+      // For demo purposes, simulate successful update
+      console.log('Project updated:', project);
+      return project;
+    } catch (error) {
+      console.error(`Error updating project ${project.id}:`, error);
+      throw error;
     }
-    
-    const updatedProject: Project = {
-      ...projects[projectIndex],
-      ...updates,
-      updatedAt: new Date().toISOString()
-    };
-    
-    projects[projectIndex] = updatedProject;
-    this.saveProjects(projects);
-    
-    return updatedProject;
-  };
+  }
   
   /**
    * Delete a project
    */
-  delete = (id: string): boolean => {
-    const projects = this.getAll();
-    const filteredProjects = projects.filter(project => project.id !== id);
-    
-    if (filteredProjects.length === projects.length) {
-      return false;
+  async deleteProject(id: string): Promise<void> {
+    try {
+      // Simulated API call - in production would use the actual endpoint
+      // await api.delete(`/projects/${id}`);
+      
+      // For demo purposes, simulate successful deletion
+      console.log(`Project ${id} deleted`);
+    } catch (error) {
+      console.error(`Error deleting project ${id}:`, error);
+      throw error;
     }
-    
-    this.saveProjects(filteredProjects);
-    return true;
-  };
+  }
   
   /**
    * Update project progress
    */
-  updateProgress = (id: string, progress: number): Project | null => {
-    return this.update(id, { progress });
-  };
-  
-  /**
-   * Complete a project
-   */
-  completeProject = (id: string): Project | null => {
-    const now = new Date().toISOString();
-    return this.update(id, { 
-      status: 'COMPLETED', 
-      completedAt: now,
-      progress: 100
-    });
-  };
-  
-  /**
-   * Add milestone to project
-   */
-  addMilestone = (projectId: string, milestone: Omit<Project['milestones'][0], 'id' | 'isCompleted' | 'completedAt'>): Project | null => {
-    const project = this.getById(projectId);
-    
-    if (!project) {
-      return null;
+  async updateProgress(id: string, progress: number): Promise<void> {
+    try {
+      // Simulated API call - in production would use the actual endpoint
+      // await api.patch(`/projects/${id}/progress`, { progress });
+      
+      // For demo purposes, simulate successful progress update
+      console.log(`Progress for project ${id} updated to ${progress}%`);
+    } catch (error) {
+      console.error(`Error updating progress for project ${id}:`, error);
+      throw error;
     }
-    
-    const newMilestone = {
-      ...milestone,
-      id: uuidv4(),
-      isCompleted: false,
-      completedAt: null
-    };
-    
-    const updatedMilestones = [...project.milestones, newMilestone];
-    return this.update(projectId, { milestones: updatedMilestones });
-  };
+  }
   
   /**
-   * Complete milestone
+   * Mark a project as completed
    */
-  completeMilestone = (projectId: string, milestoneId: string): Project | null => {
-    const project = this.getById(projectId);
-    
-    if (!project) {
-      return null;
+  async completeProject(id: string): Promise<void> {
+    try {
+      // Simulated API call - in production would use the actual endpoint
+      // await api.patch(`/projects/${id}/complete`);
+      
+      // For demo purposes, simulate successful completion
+      console.log(`Project ${id} marked as completed`);
+    } catch (error) {
+      console.error(`Error completing project ${id}:`, error);
+      throw error;
     }
+  }
+  
+  /**
+   * Generate mock projects for demonstration
+   * In a real application, this would be replaced with actual API calls
+   */
+  private getMockProjects(): Project[] {
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
     
-    const updatedMilestones = project.milestones.map(milestone => 
-      milestone.id === milestoneId 
-        ? { ...milestone, isCompleted: true, completedAt: new Date().toISOString() } 
-        : milestone
-    );
+    const nextWeek = new Date(today);
+    nextWeek.setDate(nextWeek.getDate() + 7);
     
-    return this.update(projectId, { milestones: updatedMilestones });
-  };
-  
-  /**
-   * Filter projects
-   */
-  filterProjects = (projects: Project[], filter: ProjectFilter): Project[] => {
-    return projects.filter(project => {
-      // Filter by status
-      if (filter.status && filter.status !== 'ALL' && project.status !== filter.status) {
-        return false;
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    
+    const lastWeek = new Date(today);
+    lastWeek.setDate(lastWeek.getDate() - 7);
+    
+    return [
+      {
+        id: '1',
+        title: 'Website Redesign',
+        description: 'Completely overhaul the company website with a modern design and improved user experience.',
+        dueDate: nextMonth.toISOString().split('T')[0],
+        status: 'in_progress',
+        priority: 'high',
+        progress: 45,
+        milestones: [
+          { title: 'Design mockups', completed: true },
+          { title: 'Frontend development', completed: true },
+          { title: 'Content migration', completed: false },
+          { title: 'Testing and QA', completed: false },
+          { title: 'Launch', completed: false }
+        ],
+        createdAt: lastWeek.toISOString()
+      },
+      {
+        id: '2',
+        title: 'Mobile App Development',
+        description: 'Create a cross-platform mobile application for iOS and Android.',
+        dueDate: nextMonth.toISOString().split('T')[0],
+        status: 'not_started',
+        priority: 'medium',
+        progress: 0,
+        milestones: [
+          { title: 'Requirements gathering', completed: false },
+          { title: 'UI/UX design', completed: false },
+          { title: 'Backend development', completed: false },
+          { title: 'Frontend development', completed: false },
+          { title: 'Testing', completed: false },
+          { title: 'App store submission', completed: false }
+        ],
+        createdAt: today.toISOString()
+      },
+      {
+        id: '3',
+        title: 'Marketing Campaign',
+        description: 'Plan and execute Q2 marketing campaign across social media, email, and content marketing.',
+        dueDate: tomorrow.toISOString().split('T')[0],
+        status: 'on_hold',
+        priority: 'high',
+        progress: 30,
+        milestones: [
+          { title: 'Strategy development', completed: true },
+          { title: 'Content creation', completed: true },
+          { title: 'Campaign setup', completed: false },
+          { title: 'Launch campaign', completed: false },
+          { title: 'Analyze results', completed: false }
+        ],
+        createdAt: lastWeek.toISOString()
+      },
+      {
+        id: '4',
+        title: 'Product Launch',
+        description: 'Coordinate the launch of our new flagship product.',
+        dueDate: nextWeek.toISOString().split('T')[0],
+        status: 'in_progress',
+        priority: 'high',
+        progress: 65,
+        milestones: [
+          { title: 'Product testing', completed: true },
+          { title: 'Marketing materials', completed: true },
+          { title: 'Press release', completed: true },
+          { title: 'Launch event planning', completed: false },
+          { title: 'Post-launch support', completed: false }
+        ],
+        createdAt: lastWeek.toISOString()
+      },
+      {
+        id: '5',
+        title: 'Office Renovation',
+        description: 'Renovate the main office space to accommodate team growth and improve work environment.',
+        dueDate: nextMonth.toISOString().split('T')[0],
+        status: 'completed',
+        priority: 'medium',
+        progress: 100,
+        milestones: [
+          { title: 'Design approval', completed: true },
+          { title: 'Contractor selection', completed: true },
+          { title: 'Construction phase', completed: true },
+          { title: 'Furniture and equipment', completed: true },
+          { title: 'Move-in', completed: true }
+        ],
+        createdAt: lastWeek.toISOString()
       }
-      
-      // Filter by priority
-      if (filter.priority && filter.priority !== 'ALL' && project.priority !== filter.priority) {
-        return false;
-      }
-      
-      // Filter by search term
-      if (filter.searchTerm) {
-        const searchTermLower = filter.searchTerm.toLowerCase();
-        const titleMatch = project.title.toLowerCase().includes(searchTermLower);
-        const descMatch = project.description.toLowerCase().includes(searchTermLower);
-        if (!titleMatch && !descMatch) {
-          return false;
-        }
-      }
-      
-      // Filter by tags
-      if (filter.tags && filter.tags.length > 0) {
-        const hasMatchingTag = filter.tags.some(tag => 
-          project.tags.includes(tag)
-        );
-        if (!hasMatchingTag) {
-          return false;
-        }
-      }
-      
-      // Filter by date range
-      if (filter.dateRange) {
-        const { startDate, endDate } = filter.dateRange;
-        const projectDate = new Date(project.dueDate);
-        
-        if (startDate && new Date(startDate) > projectDate) {
-          return false;
-        }
-        
-        if (endDate && new Date(endDate) < projectDate) {
-          return false;
-        }
-      }
-      
-      return true;
-    });
-  };
-  
-  /**
-   * Sort projects
-   */
-  sortProjects = (projects: Project[], sortConfig: ProjectSortConfig): Project[] => {
-    return [...projects].sort((a, b) => {
-      const direction = sortConfig.direction === 'ASC' ? 1 : -1;
-      
-      switch (sortConfig.option) {
-        case 'TITLE':
-          return a.title.localeCompare(b.title) * direction;
-          
-        case 'CREATED_DATE':
-          return (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) * direction;
-          
-        case 'DUE_DATE':
-          return (new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()) * direction;
-          
-        case 'PRIORITY': {
-          const priorityOrder = { LOW: 0, MEDIUM: 1, HIGH: 2, URGENT: 3 };
-          return (priorityOrder[a.priority] - priorityOrder[b.priority]) * direction;
-        }
-          
-        case 'PROGRESS':
-          return (a.progress - b.progress) * direction;
-          
-        default:
-          return 0;
-      }
-    });
-  };
-  
-  /**
-   * Save projects to local storage
-   */
-  private saveProjects = (projects: Project[]): void => {
-    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
-  };
+    ];
+  }
 }
 
 export default new ProjectService();
