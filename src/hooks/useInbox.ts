@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useInboxUtils } from '@/utils/dataUtils';
 import { useToast } from '@/hooks/use-toast';
+import { useData } from '@/contexts/DataContext';
 
 export const useInbox = () => {
   const [input, setInput] = useState('');

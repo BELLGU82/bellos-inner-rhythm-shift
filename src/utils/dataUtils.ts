@@ -1,4 +1,3 @@
-
 import { useData, generateId } from '@/contexts/DataContext';
 
 // Task utils
@@ -215,7 +214,7 @@ export const useRitualUtils = () => {
   };
 };
 
-// Missing type definitions
+// Update the InboxItem interface to match DataContext.tsx
 interface Task {
   id: string;
   title: string;
@@ -249,6 +248,7 @@ interface InboxItem {
   content: string;
   timestamp: Date;
   processed: boolean;
+  priority?: 'high' | 'medium' | 'low';
 }
 
 interface RitualData {
