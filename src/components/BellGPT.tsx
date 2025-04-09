@@ -5,7 +5,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import NeumorphButton from './NeumorphButton';
 import { cn } from '@/lib/utils';
 import { sendToBellGpt, generateSessionId } from '@/utils/bellGptApi';
-import { useToast } from '@/hooks/use-toast';
 
 type Message = {
   id: string;
@@ -20,7 +19,6 @@ const BellGPT = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [sessionId, setSessionId] = useState('');
-  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -44,9 +42,7 @@ const BellGPT = () => {
     }
   }, [messages]);
 
-  const toggleOpen = () => {
-    setIsOpen(prevIsOpen => !prevIsOpen);
-  };
+  const toggleOpen = () => setIsOpen(!isOpen);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,14 +88,13 @@ const BellGPT = () => {
         )
       );
     } catch (error) {
-      console.error('Error calling BellGPT:', error);
       // Handle error
       setMessages(prev => 
         prev.map(msg => 
           msg.isLoading 
             ? {
                 id: msg.id,
-                content: t('gpt_error'),
+                content: "Sorry, I couldn't process that request. Please try again.",
                 sender: 'ai',
                 timestamp: new Date(),
                 isLoading: false,
@@ -107,31 +102,18 @@ const BellGPT = () => {
             : msg
         )
       );
-      toast({
-        title: "Error",
-        description: "Could not connect to BellGPT. Please try again later.",
-        variant: "destructive"
-      });
     }
   };
 
   const handleActNow = (message: Message) => {
     // For now just log the action
     console.log("Act Now on:", message.content);
-    toast({
-      title: t('act_now'),
-      description: "Feature coming soon",
-    });
     // In a real implementation, this would convert the message to a task or calendar event
   };
 
   const handleSendToInbox = (message: Message) => {
     // For now just log the action
     console.log("Send to Inbox:", message.content);
-    toast({
-      title: t('send_to_inbox'),
-      description: "Feature coming soon",
-    });
     // In a real implementation, this would send the content to the Inbox component
   };
 
@@ -156,7 +138,7 @@ const BellGPT = () => {
         className={cn(
           "fixed z-50 top-0 h-screen w-80 md:w-96 bg-bell-background shadow-neumorph transition-all duration-300 ease-in-out",
           isRTL 
-            ? "left-0 transform -translate-x-full rounded-r-2xl" 
+            ? "right-0 transform translate-x-full rounded-l-2xl" 
             : "right-0 transform translate-x-full rounded-l-2xl",
           isOpen && (isRTL 
             ? "transform translate-x-0" 
@@ -244,7 +226,7 @@ const BellGPT = () => {
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder={`${t('gpt_placeholder')}`}
+            placeholder={`${t('ask')}...`}
             className="flex-1 p-2 rounded-lg shadow-neumorph-inner bg-transparent focus:outline-none"
           />
           
