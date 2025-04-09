@@ -35,6 +35,7 @@ interface InboxItem {
   content: string;
   timestamp: Date;
   processed: boolean;
+  priority?: 'high' | 'medium' | 'low';
 }
 
 interface RitualData {
@@ -211,3 +212,4 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 export const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 };
+
