@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -30,8 +30,9 @@ const SidebarItem = ({ icon, label, to, active }: SidebarItemProps) => {
 };
 
 const Sidebar = () => {
-  // This would be determined by the current route in a real app
-  const currentPath = '/';
+  // Use the location hook to determine the current path
+  const location = useLocation();
+  const currentPath = location.pathname;
 
   return (
     <aside className="neumorph-sm w-64 p-4 flex flex-col h-screen">

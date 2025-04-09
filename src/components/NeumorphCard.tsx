@@ -1,5 +1,5 @@
 
-import React, { ReactNode } from 'react';
+import React, { ReactNode, CSSProperties } from 'react';
 import { cn } from '@/lib/utils';
 
 type NeumorphCardProps = {
@@ -7,16 +7,18 @@ type NeumorphCardProps = {
   title?: string;
   className?: string;
   innerClassName?: string;
+  style?: CSSProperties;
 };
 
 const NeumorphCard: React.FC<NeumorphCardProps> = ({ 
   children, 
   title, 
   className,
-  innerClassName
+  innerClassName,
+  style
 }) => {
   return (
-    <div className={cn("neumorph-card", className)}>
+    <div className={cn("neumorph-card", className)} style={style}>
       {title && (
         <h3 className="text-lg font-semibold mb-4 text-bell-foreground">{title}</h3>
       )}
