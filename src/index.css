@@ -1,131 +1,168 @@
 
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Miriam+Libre:wght@400;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    --background: 210 15% 96.1%;
-    --foreground: 210 38% 95%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 221.2 83% 53.3%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 1rem;
-
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
+:root {
+  --bell-background: #f4f5f7;
+  --bell-foreground: #374151;
+  --bell-primary: #f05d7b;
+  --bell-secondary: #fb7f6b;
+  --bell-muted: #718096;
+  --bell-subtle: #e2e8f0;
+  --bell-accent: #f8fafc;
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-bell-background text-bell-foreground;
-    font-family: 'Inter', sans-serif;
-  }
+.dark {
+  --bell-background: #151827;
+  --bell-foreground: #e2e8f0;
+  --bell-primary: #f05d7b;
+  --bell-secondary: #fb7f6b;
+  --bell-muted: #94a3b8;
+  --bell-subtle: #2d3748;
+  --bell-accent: #1e2235;
 }
 
-@layer components {
-  .neumorph {
-    @apply bg-bell-background rounded-xl shadow-neumorph;
-  }
-  
-  .neumorph-sm {
-    @apply bg-bell-background rounded-xl shadow-neumorph-sm;
-  }
-  
-  .neumorph-inner {
-    @apply bg-bell-background rounded-xl shadow-neumorph-inner;
-  }
-  
-  .neumorph-btn {
-    @apply bg-bell-background rounded-xl shadow-neumorph-sm hover:shadow-neumorph-pressed transition-shadow duration-200;
-  }
-  
-  .neumorph-card {
-    @apply bg-bell-card rounded-xl shadow-neumorph-sm p-6;
-  }
-  
-  .bell-input {
-    @apply rounded-xl shadow-neumorph-inner bg-bell-background p-4 focus:outline-none;
-  }
-  
-  .bell-sidebar-item {
-    @apply flex items-center gap-3 p-3 rounded-lg text-bell-foreground hover:bg-bell-subtle transition-colors duration-200;
-  }
-  
-  .bell-sidebar-item.active {
-    @apply bg-bell-subtle text-bell-primary font-medium;
-  }
+body {
+  background-color: var(--bell-background);
+  color: var(--bell-foreground);
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+html[dir="rtl"] body {
+  font-family: 'Miriam Libre', sans-serif;
+}
+
+.neumorph-sm {
+  background-color: var(--bell-background);
+  box-shadow: 
+    3px 3px 6px rgba(0, 0, 0, 0.05),
+    -3px -3px 6px rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+}
+
+.neumorph-inner {
+  background-color: var(--bell-background);
+  box-shadow: 
+    inset 3px 3px 6px rgba(0, 0, 0, 0.05),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.8);
+  border-radius: 12px;
+}
+
+.neumorph-btn {
+  background-color: var(--bell-background);
+  box-shadow: 
+    2px 2px 4px rgba(0, 0, 0, 0.05),
+    -2px -2px 4px rgba(255, 255, 255, 0.8);
+  transition: all 0.2s ease;
+}
+
+.neumorph-btn:hover {
+  box-shadow: 
+    1px 1px 3px rgba(0, 0, 0, 0.03),
+    -1px -1px 3px rgba(255, 255, 255, 0.6);
+}
+
+.neumorph-btn:active {
+  box-shadow: 
+    inset 2px 2px 4px rgba(0, 0, 0, 0.05),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+}
+
+.bell-input {
+  background-color: var(--bell-background);
+  box-shadow: 
+    inset 2px 2px 4px rgba(0, 0, 0, 0.05),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  border: none;
+  padding: 12px 16px;
+  width: 100%;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.bell-input:focus {
+  box-shadow: 
+    inset 3px 3px 6px rgba(0, 0, 0, 0.07),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.9);
+}
+
+.bell-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  color: var(--bell-foreground);
+}
+
+.bell-sidebar-item:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.bell-sidebar-item.active {
+  background-color: rgba(240, 93, 123, 0.1);
+  color: var(--bell-primary);
+}
+
+.bell-sidebar-item svg {
+  min-width: 20px;
+}
+
+.dark .neumorph-sm {
+  background-color: var(--bell-background);
+  box-shadow: 
+    3px 3px 6px rgba(0, 0, 0, 0.2),
+    -3px -3px 6px rgba(255, 255, 255, 0.05);
+}
+
+.dark .neumorph-inner {
+  background-color: var(--bell-background);
+  box-shadow: 
+    inset 3px 3px 6px rgba(0, 0, 0, 0.2),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.05);
+}
+
+.dark .neumorph-btn {
+  background-color: var(--bell-background);
+  box-shadow: 
+    2px 2px 4px rgba(0, 0, 0, 0.2),
+    -2px -2px 4px rgba(255, 255, 255, 0.05);
+}
+
+.dark .neumorph-btn:hover {
+  box-shadow: 
+    1px 1px 3px rgba(0, 0, 0, 0.15),
+    -1px -1px 3px rgba(255, 255, 255, 0.035);
+}
+
+.dark .neumorph-btn:active {
+  box-shadow: 
+    inset 2px 2px 4px rgba(0, 0, 0, 0.2),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.05);
+}
+
+.dark .bell-input {
+  background-color: var(--bell-background);
+  box-shadow: 
+    inset 2px 2px 4px rgba(0, 0, 0, 0.2),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.05);
+}
+
+.dark .bell-input:focus {
+  box-shadow: 
+    inset 3px 3px 6px rgba(0, 0, 0, 0.25),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.07);
+}
+
+.dark .bell-sidebar-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.dark .bell-sidebar-item.active {
+  background-color: rgba(240, 93, 123, 0.15);
 }
