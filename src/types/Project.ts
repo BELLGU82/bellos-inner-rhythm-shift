@@ -1,3 +1,4 @@
+
 export interface Project {
   id?: string;
   name: string;
@@ -14,8 +15,9 @@ export interface Milestone {
   title: string;
   description?: string;
   completed: boolean;
-  dueDate?: string;
+  dueDate: string;  // Making this required based on error message
   createdAt: string;
+  completedAt?: string;  // Adding this field based on the code usage
 }
 
 export interface ProjectFormValues {
