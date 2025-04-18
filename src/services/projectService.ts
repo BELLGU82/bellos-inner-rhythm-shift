@@ -9,6 +9,9 @@ export class ProjectService {
    */
   async getProjects(): Promise<Project[]> {
     try {
+      // Create the projects table if it doesn't exist
+      await this.ensureProjectsTableExists();
+      
       const { data, error } = await supabase
         .from('projects')
         .select('*')
@@ -27,6 +30,8 @@ export class ProjectService {
    */
   async getProjectById(id: string): Promise<Project | null> {
     try {
+      await this.ensureProjectsTableExists();
+      
       const { data, error } = await supabase
         .from('projects')
         .select('*')
@@ -45,14 +50,16 @@ export class ProjectService {
    * Create a new project
    */
   async createProject(project: Omit<Project, 'id' | 'createdAt'>): Promise<Project> {
-    const newProject: Project = {
-      ...project,
-      id: uuidv4(),
-      createdAt: new Date().toISOString(),
-      milestones: []
-    };
-
     try {
+      await this.ensureProjectsTableExists();
+      
+      const newProject: Project = {
+        ...project,
+        id: uuidv4(),
+        createdAt: new Date().toISOString(),
+        milestones: []
+      };
+
       const { data, error } = await supabase
         .from('projects')
         .insert(newProject)
@@ -63,7 +70,13 @@ export class ProjectService {
       return data || newProject;
     } catch (error) {
       console.error('Error creating project:', error);
-      return newProject; // Return the local object as fallback
+      // Return the local object as fallback
+      return {
+        ...project,
+        id: uuidv4(),
+        createdAt: new Date().toISOString(),
+        milestones: []
+      };
     }
   }
 
@@ -72,6 +85,8 @@ export class ProjectService {
    */
   async updateProject(project: Project): Promise<Project> {
     try {
+      await this.ensureProjectsTableExists();
+      
       const { data, error } = await supabase
         .from('projects')
         .update(project)
@@ -80,7 +95,7 @@ export class ProjectService {
         .single();
       
       if (error) throw error;
-      return data;
+      return data || project;
     } catch (error) {
       console.error(`Error updating project with ID ${project.id}:`, error);
       return project; // Return the input object as fallback
@@ -92,6 +107,8 @@ export class ProjectService {
    */
   async deleteProject(id: string): Promise<boolean> {
     try {
+      await this.ensureProjectsTableExists();
+      
       const { error } = await supabase
         .from('projects')
         .delete()
@@ -110,6 +127,8 @@ export class ProjectService {
    */
   async completeProject(id: string): Promise<Project | null> {
     try {
+      await this.ensureProjectsTableExists();
+      
       const { data, error } = await supabase
         .from('projects')
         .update({
@@ -155,6 +174,29 @@ export class ProjectService {
     } catch (error) {
       console.error(`Error updating milestone in project ${projectId}:`, error);
       return null;
+    }
+  }
+  
+  /**
+   * Ensure the projects table exists and has the correct schema
+   * This is a helper method to avoid errors when the table doesn't exist
+   */
+  private async ensureProjectsTableExists() {
+    try {
+      // Check if the table exists
+      const { error } = await supabase
+        .from('projects')
+        .select('id')
+        .limit(1);
+      
+      if (error) {
+        console.log('Projects table may not exist. Creating it...');
+        
+        // Create the table
+        await supabase.rpc('create_projects_table');
+      }
+    } catch (error) {
+      console.error('Error ensuring projects table exists:', error);
     }
   }
 }

@@ -1,54 +1,34 @@
-// src/components/Projects/MilestoneList.tsx
+
 import React, { useState } from 'react';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Grid,
-  IconButton,
-  Stack,
-  Chip,
-  Dialog,
+import { v4 as uuidv4 } from 'uuid';
+import { 
+  Box, 
+  Button, 
+  Card, 
+  CardContent, 
+  Typography, 
+  TextField, 
+  Checkbox, 
+  FormControlLabel, 
+  Tooltip, 
+  IconButton, 
+  Paper, 
+  Stack, 
+  Dialog, 
+  DialogTitle, 
+  DialogContent, 
+  DialogContentText, 
   DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   Table,
+  TableHead,
   TableBody,
+  TableRow,
   TableCell,
   TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Tooltip,
-  useTheme,
-  Checkbox,
-  FormControlLabel,
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineConnector,
-  TimelineContent,
-  TimelineDot,
-  TimelineOppositeContent
+  Chip
 } from '@mui/material';
-import { LocalizationProvider, DatePicker } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import heLocale from 'date-fns/locale/he';
-import {
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  CheckCircle as CompletedIcon,
-  RadioButtonUnchecked as PendingIcon,
-  Flag as FlagIcon,
-  Event as EventIcon,
-  Info as InfoIcon
-} from '@mui/icons-material';
-import { v4 as uuidv4 } from 'uuid';
+import { Check as CompletedIcon, Delete as DeleteIcon, Edit as EditIcon, Flag as FlagIcon } from '@mui/icons-material';
+import { formatDate, getRelativeTimeText, isDatePast } from '../../utils/dateUtils';
 import { ProjectMilestone } from '../../types/projects';
 
 interface MilestoneListProps {
@@ -57,8 +37,6 @@ interface MilestoneListProps {
 }
 
 const MilestoneList: React.FC<MilestoneListProps> = ({ milestones = [], onMilestonesChange }) => {
-  const theme = useTheme();
-  
   // State
   const [showAddMilestone, setShowAddMilestone] = useState<boolean>(false);
   const [editingMilestoneId, setEditingMilestoneId] = useState<string | null>(null);
@@ -69,7 +47,8 @@ const MilestoneList: React.FC<MilestoneListProps> = ({ milestones = [], onMilest
   const defaultMilestone: Omit<ProjectMilestone, 'id'> = {
     title: '',
     description: '',
-    dueDate: new Date().toISOString()
+    dueDate: new Date().toISOString(),
+    completedAt: undefined
   };
   
   // Form state
@@ -85,10 +64,10 @@ const MilestoneList: React.FC<MilestoneListProps> = ({ milestones = [], onMilest
   };
   
   // Handle date change
-  const handleDateChange = (date: Date | null) => {
+  const handleDateChange = (date: string) => {
     setFormData(prev => ({
       ...prev,
-      dueDate: date ? date.toISOString() : new Date().toISOString()
+      dueDate: date
     }));
   };
   
@@ -184,12 +163,6 @@ const MilestoneList: React.FC<MilestoneListProps> = ({ milestones = [], onMilest
     onMilestonesChange(updatedMilestones);
   };
   
-  // Format date
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('he-IL');
-  };
-  
   // Check if milestone is overdue
   const isOverdue = (milestone: ProjectMilestone) => {
     if (milestone.completedAt) return false;
@@ -201,10 +174,10 @@ const MilestoneList: React.FC<MilestoneListProps> = ({ milestones = [], onMilest
   // Get status color
   const getStatusColor = (milestone: ProjectMilestone) => {
     if (milestone.completedAt) {
-      return theme.palette.success.main;
+      return 'success.main';
     }
     
-    return isOverdue(milestone) ? theme.palette.error.main : theme.palette.info.main;
+    return isOverdue(milestone) ? 'error.main' : 'info.main';
   };
   
   // Render milestone form
@@ -216,92 +189,77 @@ const MilestoneList: React.FC<MilestoneListProps> = ({ milestones = [], onMilest
             {editingMilestoneId ? 'עריכת אבן דרך' : 'אבן דרך חדשה'}
           </Typography>
           
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="כותרת"
-                name="title"
-                value={formData.title}
-                onChange={handleFormChange}
-                required
-              />
-            </Grid>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="כותרת"
+              name="title"
+              value={formData.title}
+              onChange={handleFormChange}
+              required
+            />
             
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="תיאור"
-                name="description"
-                value={formData.description}
-                onChange={handleFormChange}
-                multiline
-                rows={2}
-              />
-            </Grid>
+            <TextField
+              fullWidth
+              label="תיאור"
+              name="description"
+              value={formData.description}
+              onChange={handleFormChange}
+              multiline
+              rows={2}
+            />
             
-            <Grid item xs={12} sm={6}>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={heLocale}>
-                <DatePicker
-                  label="תאריך יעד"
-                  value={formData.dueDate ? new Date(formData.dueDate) : null}
-                  onChange={handleDateChange}
-                  sx={{ width: '100%' }}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      required: true
-                    }
+            <TextField
+              fullWidth
+              label="תאריך יעד"
+              name="dueDate"
+              type="date"
+              value={formData.dueDate ? formData.dueDate.split('T')[0] : ''}
+              onChange={(e) => handleDateChange(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={!!formData.completedAt}
+                  onChange={(e) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      completedAt: e.target.checked ? new Date().toISOString() : undefined
+                    }));
                   }}
                 />
-              </LocalizationProvider>
-            </Grid>
+              }
+              label="הושלם"
+            />
+            {formData.completedAt && (
+              <Typography variant="caption" display="block" color="text.secondary">
+                הושלם בתאריך: {formatDate(formData.completedAt)}
+              </Typography>
+            )}
             
-            <Grid item xs={12} sm={6}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={!!formData.completedAt}
-                    onChange={(e) => {
-                      setFormData(prev => ({
-                        ...prev,
-                        completedAt: e.target.checked ? new Date().toISOString() : undefined
-                      }));
-                    }}
-                  />
-                }
-                label="הושלם"
-              />
-              {formData.completedAt && (
-                <Typography variant="caption" display="block" color="text.secondary">
-                  הושלם בתאריך: {formatDate(formData.completedAt)}
-                </Typography>
-              )}
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Stack direction="row" spacing={2} justifyContent="flex-end">
-                <Button
-                  variant="outlined"
-                  onClick={() => {
-                    setShowAddMilestone(false);
-                    setEditingMilestoneId(null);
-                    setFormData(defaultMilestone);
-                  }}
-                >
-                  ביטול
-                </Button>
-                
-                <Button
-                  variant="contained"
-                  onClick={editingMilestoneId ? handleUpdateMilestone : handleAddMilestone}
-                  disabled={!formData.title.trim()}
-                >
-                  {editingMilestoneId ? 'עדכן אבן דרך' : 'הוסף אבן דרך'}
-                </Button>
-              </Stack>
-            </Grid>
-          </Grid>
+            <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setShowAddMilestone(false);
+                  setEditingMilestoneId(null);
+                  setFormData(defaultMilestone);
+                }}
+              >
+                ביטול
+              </Button>
+              
+              <Button
+                variant="contained"
+                onClick={editingMilestoneId ? handleUpdateMilestone : handleAddMilestone}
+                disabled={!formData.title.trim()}
+              >
+                {editingMilestoneId ? 'עדכן אבן דרך' : 'הוסף אבן דרך'}
+              </Button>
+            </Stack>
+          </Box>
         </CardContent>
       </Card>
     );
@@ -323,72 +281,75 @@ const MilestoneList: React.FC<MilestoneListProps> = ({ milestones = [], onMilest
     }
     
     return (
-      <Timeline position="alternate" sx={{ p: 0 }}>
+      <Stack spacing={2}>
         {milestones.map((milestone, index) => {
           const isCompleted = !!milestone.completedAt;
           const statusColor = getStatusColor(milestone);
           
           return (
-            <TimelineItem key={milestone.id}>
-              <TimelineOppositeContent sx={{ m: 'auto 0' }}>
-                <Typography variant="body2" color="text.secondary">
-                  {formatDate(milestone.dueDate)}
-                </Typography>
-                {isCompleted && (
-                  <Typography variant="caption" color="success.main">
-                    הושלם ב-{formatDate(milestone.completedAt!)}
+            <Paper 
+              key={milestone.id} 
+              elevation={3} 
+              sx={{ 
+                p: 2, 
+                borderRight: `4px solid ${statusColor}`,
+                position: 'relative'
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <Box>
+                  <Typography variant="h6" component="div">
+                    {milestone.title}
                   </Typography>
-                )}
-                {isOverdue(milestone) && (
-                  <Typography variant="caption" color="error.main">
-                    באיחור
+                  <Typography variant="body2" color="text.secondary">
+                    {formatDate(milestone.dueDate)}
                   </Typography>
-                )}
-              </TimelineOppositeContent>
-              
-              <TimelineSeparator>
-                <TimelineDot 
-                  color={isCompleted ? 'success' : isOverdue(milestone) ? 'error' : 'primary'}
-                  variant={isCompleted ? 'filled' : 'outlined'}
-                  sx={{ cursor: 'pointer' }}
-                  onClick={() => handleToggleCompletion(milestone.id)}
-                >
-                  {isCompleted ? <CompletedIcon /> : <FlagIcon />}
-                </TimelineDot>
-                {index < milestones.length - 1 && <TimelineConnector />}
-              </TimelineSeparator>
-              
-              <TimelineContent sx={{ py: 2, px: 2 }}>
-                <Paper elevation={3} sx={{ p: 2, borderRight: `4px solid ${statusColor}` }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Typography variant="h6" component="div">
-                      {milestone.title}
-                    </Typography>
-                    <Box>
-                      <Tooltip title="ערוך">
-                        <IconButton size="small" onClick={() => handleStartEdit(milestone.id)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="מחק">
-                        <IconButton size="small" onClick={() => handleDeleteMilestone(milestone.id)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  </Box>
                   
-                  {milestone.description && (
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      {milestone.description}
+                  {isCompleted && (
+                    <Typography variant="caption" color="success.main">
+                      הושלם ב-{formatDate(milestone.completedAt!)}
                     </Typography>
                   )}
-                </Paper>
-              </TimelineContent>
-            </TimelineItem>
+                  
+                  {isOverdue(milestone) && (
+                    <Typography variant="caption" color="error.main">
+                      באיחור
+                    </Typography>
+                  )}
+                </Box>
+                
+                <Box>
+                  <Tooltip title="ערוך">
+                    <IconButton size="small" onClick={() => handleStartEdit(milestone.id)}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title="מחק">
+                    <IconButton size="small" onClick={() => handleDeleteMilestone(milestone.id)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Tooltip title={isCompleted ? "סמן כלא הושלם" : "סמן כהושלם"}>
+                    <IconButton 
+                      size="small" 
+                      onClick={() => handleToggleCompletion(milestone.id)}
+                      color={isCompleted ? "success" : "default"}
+                    >
+                      <CompletedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+              </Box>
+              
+              {milestone.description && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  {milestone.description}
+                </Typography>
+              )}
+            </Paper>
           );
         })}
-      </Timeline>
+      </Stack>
     );
   };
   
@@ -434,7 +395,7 @@ const MilestoneList: React.FC<MilestoneListProps> = ({ milestones = [], onMilest
                     <Checkbox
                       checked={isCompleted}
                       onChange={() => handleToggleCompletion(milestone.id)}
-                      icon={<PendingIcon />}
+                      icon={<FlagIcon />}
                       checkedIcon={<CompletedIcon />}
                       sx={{ color: isCompleted ? 'success.main' : 'inherit' }}
                     />
@@ -515,7 +476,6 @@ const MilestoneList: React.FC<MilestoneListProps> = ({ milestones = [], onMilest
         {!showAddMilestone && (
           <Button
             variant="outlined"
-            startIcon={<AddIcon />}
             onClick={() => {
               setFormData(defaultMilestone);
               setEditingMilestoneId(null);

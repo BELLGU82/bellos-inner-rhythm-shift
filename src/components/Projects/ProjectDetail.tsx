@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -20,9 +21,9 @@ import {
   DialogContentText,
   DialogTitle,
   IconButton,
-  Grid,
   Divider,
-  Tooltip
+  Tooltip,
+  Stack
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -32,7 +33,7 @@ import {
   Add as AddIcon,
   Flag as FlagIcon
 } from '@mui/icons-material';
-import { ProjectService } from '../../services/ProjectService';
+import { ProjectService } from '../../services/projectService';
 import { Project, Milestone } from '../../types/Project';
 import { formatDate } from '../../utils/dateUtils';
 
@@ -91,7 +92,9 @@ const ProjectDetail: React.FC = () => {
     
     try {
       const updatedProject = await projectService.updateProject(editedProject);
-      setProject(updatedProject);
+      if (updatedProject) {
+        setProject(updatedProject);
+      }
       setEditDialogOpen(false);
     } catch (err) {
       console.error('Error updating project:', err);
@@ -119,7 +122,9 @@ const ProjectDetail: React.FC = () => {
     
     try {
       const updatedProject = await projectService.completeProject(id);
-      setProject(updatedProject);
+      if (updatedProject) {
+        setProject(updatedProject);
+      }
     } catch (err) {
       console.error('Error completing project:', err);
     }
@@ -141,7 +146,9 @@ const ProjectDetail: React.FC = () => {
         updatedMilestone
       );
       
-      setProject(updatedProject);
+      if (updatedProject) {
+        setProject(updatedProject);
+      }
     } catch (err) {
       console.error('Error updating milestone:', err);
     }
@@ -153,14 +160,18 @@ const ProjectDetail: React.FC = () => {
     try {
       const updatedProject = { ...project };
       const newMilestoneObj: Milestone = {
-        name: newMilestone.trim(),
-        completed: false
+        id: crypto.randomUUID(),
+        title: newMilestone.trim(),
+        completed: false,
+        dueDate: new Date().toISOString()
       };
       
       updatedProject.milestones = [...(updatedProject.milestones || []), newMilestoneObj];
       
       const savedProject = await projectService.updateProject(updatedProject);
-      setProject(savedProject);
+      if (savedProject) {
+        setProject(savedProject);
+      }
       setNewMilestone('');
       setAddMilestoneDialogOpen(false);
     } catch (err) {
@@ -202,6 +213,8 @@ const ProjectDetail: React.FC = () => {
     }
   };
 
+  const projectName = project.name || project.title || '';
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -211,7 +224,7 @@ const ProjectDetail: React.FC = () => {
         >
           חזרה לרשימה
         </Button>
-        <Box>
+        <Stack direction="row" spacing={1}>
           <Tooltip title="ערוך פרויקט">
             <IconButton onClick={handleEditClick} color="primary">
               <EditIcon />
@@ -231,28 +244,28 @@ const ProjectDetail: React.FC = () => {
               <DeleteIcon />
             </IconButton>
           </Tooltip>
-        </Box>
+        </Stack>
       </Box>
 
       <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Typography variant="h4">{project.name}</Typography>
+          <Typography variant="h4">{projectName}</Typography>
           <Chip 
             label={project.status} 
-            color={getStatusColor(project.status) as any}
+            color={getStatusColor(project.status) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
             icon={<FlagIcon />}
           />
         </Box>
         
         <Divider sx={{ mb: 2 }} />
         
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={9}>
+        <Box sx={{ display: 'flex', flexDirection: {xs: 'column', md: 'row'}, gap: 2 }}>
+          <Box sx={{ flex: 1 }}>
             <Typography variant="body1" paragraph>
               {project.description}
             </Typography>
-          </Grid>
-          <Grid item xs={12} md={3}>
+          </Box>
+          <Box sx={{ width: {xs: '100%', md: '25%'} }}>
             <Card variant="outlined">
               <CardContent>
                 <Typography variant="subtitle2">תאריך יעד</Typography>
@@ -266,8 +279,8 @@ const ProjectDetail: React.FC = () => {
                 </Typography>
               </CardContent>
             </Card>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
         <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>התקדמות</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
@@ -323,7 +336,7 @@ const ProjectDetail: React.FC = () => {
                 }}
               >
                 <ListItemText
-                  primary={milestone.name}
+                  primary={milestone.title}
                 />
               </ListItem>
             ))}
@@ -346,8 +359,8 @@ const ProjectDetail: React.FC = () => {
                 required
                 fullWidth
                 label="שם הפרויקט"
-                value={editedProject.name}
-                onChange={(e) => setEditedProject({ ...editedProject, name: e.target.value })}
+                value={editedProject.name || editedProject.title || ''}
+                onChange={(e) => setEditedProject({ ...editedProject, name: e.target.value, title: e.target.value })}
               />
               <TextField
                 margin="normal"
@@ -364,7 +377,7 @@ const ProjectDetail: React.FC = () => {
                 label="תאריך יעד"
                 type="date"
                 InputLabelProps={{ shrink: true }}
-                value={editedProject.dueDate}
+                value={editedProject.dueDate ? editedProject.dueDate.split('T')[0] : ''}
                 onChange={(e) => setEditedProject({ ...editedProject, dueDate: e.target.value })}
               />
             </Box>

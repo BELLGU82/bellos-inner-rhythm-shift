@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { Box, Button, Typography, Container, Paper, useTheme, Fab, useMediaQuery } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import { ProjectList } from '../components/Projects/ProjectList';
-import { ProjectForm } from '../components/Projects/ProjectForm';
+import ProjectList from '../components/Projects/ProjectList';
+import ProjectForm from '../components/Projects/ProjectForm';
 import { Project } from '../types/Project';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -54,16 +55,12 @@ export const ProjectsPage: React.FC = () => {
     
     return {
       id: uuidv4(),
-      title: '',
+      name: '',
       description: '',
-      status: 'NOT_STARTED',
-      priority: 'MEDIUM',
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
-      dueDate: twoWeeksFromNow.toISOString(),
-      completedAt: null,
+      status: 'לא התחיל',
       progress: 0,
-      tags: [],
+      createdAt: now.toISOString(),
+      dueDate: twoWeeksFromNow.toISOString(),
       milestones: []
     };
   };
@@ -140,12 +137,16 @@ export const ProjectsPage: React.FC = () => {
       )}
       
       {/* Project form dialog */}
-      <ProjectForm
-        open={openProjectForm}
-        onClose={handleCloseProjectForm}
-        project={editProject || createDefaultProject()}
-        isEditMode={!!editProject}
-      />
+      {openProjectForm && (
+        <ProjectForm
+          open={openProjectForm}
+          onClose={handleCloseProjectForm}
+          project={editProject || createDefaultProject()}
+          isEditMode={!!editProject}
+        />
+      )}
     </Container>
   );
 };
+
+export default ProjectsPage;
