@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -6,7 +7,6 @@ import {
   DialogActions,
   TextField,
   Button,
-  Grid,
   FormControl,
   InputLabel,
   Select,
@@ -16,10 +16,11 @@ import {
   Box
 } from '@mui/material';
 import { Project, ProjectFormValues } from '../../types/Project';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import heLocale from 'date-fns/locale/he';
+import { format, parseISO } from 'date-fns';
+import { he } from 'date-fns/locale';
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 interface ProjectFormProps {
   open: boolean;
@@ -46,6 +47,7 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
 
   const [formValues, setFormValues] = useState<ProjectFormValues>(defaultValues);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [date, setDate] = useState<Date | undefined>(undefined);
 
   useEffect(() => {
     if (initialValues) {
@@ -56,8 +58,13 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
         progress: initialValues.progress,
         dueDate: initialValues.dueDate
       });
+      
+      if (initialValues.dueDate) {
+        setDate(new Date(initialValues.dueDate));
+      }
     } else {
       setFormValues(defaultValues);
+      setDate(undefined);
     }
   }, [initialValues, open]);
 
@@ -86,10 +93,11 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
     });
   };
 
-  const handleDateChange = (date: Date | null) => {
+  const handleDateChange = (newDate: Date | undefined) => {
+    setDate(newDate);
     setFormValues({
       ...formValues,
-      dueDate: date ? date.toISOString().split('T')[0] : undefined
+      dueDate: newDate ? newDate.toISOString() : undefined
     });
   };
 
@@ -134,43 +142,37 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
       <DialogTitle>{title}</DialogTitle>
       <form onSubmit={handleSubmit}>
         <DialogContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                name="name"
-                label="שם הפרויקט"
-                value={formValues.name}
-                onChange={handleChange}
-                fullWidth
-                required
-                error={!!errors.name}
-                helperText={errors.name}
-                inputProps={{ dir: 'rtl' }}
-                variant="outlined"
-                margin="normal"
-              />
-            </Grid>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              name="name"
+              label="שם הפרויקט"
+              value={formValues.name}
+              onChange={handleChange}
+              fullWidth
+              required
+              error={!!errors.name}
+              helperText={errors.name}
+              inputProps={{ dir: 'rtl' }}
+              variant="outlined"
+            />
             
-            <Grid item xs={12}>
-              <TextField
-                name="description"
-                label="תיאור הפרויקט"
-                value={formValues.description}
-                onChange={handleChange}
-                fullWidth
-                required
-                multiline
-                rows={4}
-                error={!!errors.description}
-                helperText={errors.description}
-                inputProps={{ dir: 'rtl' }}
-                variant="outlined"
-                margin="normal"
-              />
-            </Grid>
+            <TextField
+              name="description"
+              label="תיאור הפרויקט"
+              value={formValues.description}
+              onChange={handleChange}
+              fullWidth
+              required
+              multiline
+              rows={4}
+              error={!!errors.description}
+              helperText={errors.description}
+              inputProps={{ dir: 'rtl' }}
+              variant="outlined"
+            />
             
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth margin="normal">
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2 }}>
+              <FormControl fullWidth>
                 <InputLabel id="status-label">סטטוס</InputLabel>
                 <Select
                   labelId="status-label"
@@ -185,25 +187,33 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
                   <MenuItem value="הושלם">הושלם</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
+              
+              <Box sx={{ width: '100%' }}>
+                <InputLabel>תאריך יעד</InputLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}
+                    >
+                      {date ? format(date, 'PP', { locale: he }) : 'בחר תאריך'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={handleDateChange}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </Box>
+            </Box>
             
-            <Grid item xs={12} sm={6}>
-              <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={heLocale}>
-                <DatePicker
-                  label="תאריך יעד"
-                  value={formValues.dueDate ? new Date(formValues.dueDate) : null}
-                  onChange={handleDateChange}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      margin: 'normal'
-                    }
-                  }}
-                />
-              </LocalizationProvider>
-            </Grid>
-            
-            <Grid item xs={12}>
+            <Box>
               <Typography id="progress-slider" gutterBottom>
                 התקדמות: {formValues.progress}%
               </Typography>
@@ -220,8 +230,8 @@ const ProjectForm: React.FC<ProjectFormProps> = ({
                   max={100}
                 />
               </Box>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </DialogContent>
         
         <DialogActions>

@@ -36,7 +36,7 @@ import {
   MoreVert as MoreIcon
 } from '@mui/icons-material';
 import { Project } from '../../types/Project';
-import ProjectService from '../../services/ProjectService';
+import { projectService } from '../../services/projectService';
 import ProjectForm from './ProjectForm';
 import MilestoneList from './MilestoneList';
 import { formatDate } from '../../utils/dateUtils';
@@ -70,7 +70,7 @@ const ProjectList: React.FC = () => {
     const fetchProjects = async () => {
       try {
         setLoading(true);
-        const fetchedProjects = await ProjectService.getProjects();
+        const fetchedProjects = await projectService.getProjects();
         setProjects(fetchedProjects);
         setFilteredProjects(fetchedProjects);
         setError(null);
@@ -137,7 +137,7 @@ const ProjectList: React.FC = () => {
     try {
       if (selectedProject) {
         // Update existing project
-        await ProjectService.updateProject({
+        await projectService.updateProject({
           id: selectedProject.id,
           ...projectData
         });
@@ -152,7 +152,7 @@ const ProjectList: React.FC = () => {
         );
       } else {
         // Create new project
-        const newProject = await ProjectService.createProject(projectData);
+        const newProject = await projectService.createProject(projectData);
         
         // Update local state
         setProjects(prevProjects => [...prevProjects, newProject]);
@@ -169,7 +169,7 @@ const ProjectList: React.FC = () => {
     if (!projectToDelete) return;
     
     try {
-      await ProjectService.deleteProject(projectToDelete.id);
+      await projectService.deleteProject(projectToDelete.id);
       
       // Update local state
       setProjects(prevProjects => 
@@ -188,7 +188,7 @@ const ProjectList: React.FC = () => {
     if (!projectToComplete) return;
     
     try {
-      await ProjectService.completeProject(projectToComplete.id);
+      await projectService.completeProject(projectToComplete.id);
       
       // Update local state
       setProjects(prevProjects => 
@@ -289,7 +289,7 @@ const ProjectList: React.FC = () => {
 
       <Paper sx={{ p: 2, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6}>
+          <Grid component="div" item xs={12} sm={6}>
             <TextField
               fullWidth
               variant="outlined"
@@ -305,7 +305,7 @@ const ProjectList: React.FC = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid component="div" item xs={12} sm={6}>
             <FormControl fullWidth variant="outlined">
               <InputLabel id="status-filter-label">סינון לפי סטטוס</InputLabel>
               <Select
@@ -344,7 +344,7 @@ const ProjectList: React.FC = () => {
       ) : (
         <Grid container spacing={3}>
           {filteredProjects.map((project) => (
-            <Grid item xs={12} key={project.id}>
+            <Grid component="div" item xs={12} key={project.id}>
               <Card>
                 <CardContent>
                   <Box display="flex" justifyContent="space-between" alignItems="flex-start">
@@ -442,7 +442,7 @@ const ProjectList: React.FC = () => {
                         milestones={project.milestones}
                         onUpdate={() => {
                           // Refresh projects after milestone update
-                          ProjectService.getProjects().then(setProjects);
+                          projectService.getProjects().then(setProjects);
                         }}
                       />
                     </Box>

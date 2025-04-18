@@ -4,197 +4,286 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
-  Paper,
-  LinearProgress,
   Button,
-  Card,
-  CardContent,
+  Paper,
+  Grid,
   Chip,
-  List,
-  ListItem,
-  ListItemText,
-  Checkbox,
-  TextField,
+  LinearProgress,
+  Divider,
+  IconButton,
+  Tooltip,
   Dialog,
-  DialogActions,
+  DialogTitle,
   DialogContent,
   DialogContentText,
-  DialogTitle,
-  IconButton,
-  Divider,
-  Tooltip,
-  Stack
+  DialogActions
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Check as CheckIcon,
-  Add as AddIcon,
-  Flag as FlagIcon
+  CheckCircle as CompleteIcon,
+  Add as AddIcon
 } from '@mui/icons-material';
-import { ProjectService } from '../../services/projectService';
+import { projectService } from '../../services/projectService';
 import { Project, Milestone } from '../../types/Project';
 import { formatDate } from '../../utils/dateUtils';
+import ProjectForm from './ProjectForm';
+import MilestoneList from './MilestoneList';
+import { v4 as uuidv4 } from 'uuid';
 
-const ProjectDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+interface ProjectDetailProps {
+  projectId?: string;
+}
+
+const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId: propProjectId }) => {
+  const params = useParams();
   const navigate = useNavigate();
+  const projectId = propProjectId || params.id;
+  
   const [project, setProject] = useState<Project | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [addMilestoneDialogOpen, setAddMilestoneDialogOpen] = useState(false);
-  const [newMilestone, setNewMilestone] = useState('');
-  const [editedProject, setEditedProject] = useState<Project | null>(null);
   
-  const projectService = new ProjectService();
-
+  const [openProjectForm, setOpenProjectForm] = useState(false);
+  const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false);
+  const [openCompleteConfirm, setOpenCompleteConfirm] = useState(false);
+  const [openMilestoneForm, setOpenMilestoneForm] = useState(false);
+  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
+  
   useEffect(() => {
-    const loadProject = async () => {
-      if (!id) return;
-      
+    if (!projectId) {
+      setError('לא סופק מזהה פרויקט');
+      setLoading(false);
+      return;
+    }
+    
+    const fetchProject = async () => {
       try {
         setLoading(true);
-        const projectData = await projectService.getProjectById(id);
+        const fetchedProject = await projectService.getProjectById(projectId);
         
-        if (!projectData) {
+        if (fetchedProject) {
+          setProject(fetchedProject);
+          setError(null);
+        } else {
           setError('הפרויקט לא נמצא');
-          return;
         }
-        
-        setProject(projectData);
       } catch (err) {
-        setError('שגיאה בטעינת הפרויקט');
-        console.error(err);
+        console.error('Error fetching project:', err);
+        setError('אירעה שגיאה בטעינת הפרויקט');
       } finally {
         setLoading(false);
       }
     };
     
-    loadProject();
-  }, [id]);
-
-  const handleEditClick = () => {
-    if (project) {
-      setEditedProject({ ...project });
-      setEditDialogOpen(true);
-    }
+    fetchProject();
+  }, [projectId]);
+  
+  const handleEditProject = () => {
+    setOpenProjectForm(true);
   };
-
-  const handleEditDialogClose = () => {
-    setEditDialogOpen(false);
-  };
-
-  const handleEditDialogSave = async () => {
-    if (!editedProject) return;
-    
+  
+  const handleProjectFormSubmit = async (projectData: any) => {
     try {
-      const updatedProject = await projectService.updateProject(editedProject);
-      if (updatedProject) {
-        setProject(updatedProject);
-      }
-      setEditDialogOpen(false);
+      if (!project || !project.id) return;
+      
+      const updatedProject = await projectService.updateProject({
+        ...project,
+        ...projectData
+      });
+      
+      setProject(updatedProject);
+      setOpenProjectForm(false);
     } catch (err) {
       console.error('Error updating project:', err);
+      setError('אירעה שגיאה בעדכון הפרויקט');
     }
   };
-
-  const handleDeleteClick = () => {
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!id) return;
-    
+  
+  const handleDeleteProject = async () => {
     try {
-      await projectService.deleteProject(id);
-      setDeleteDialogOpen(false);
+      if (!project || !project.id) return;
+      
+      await projectService.deleteProject(project.id);
+      setOpenDeleteConfirm(false);
+      
+      // Navigate back to projects list
       navigate('/projects');
     } catch (err) {
       console.error('Error deleting project:', err);
+      setError('אירעה שגיאה במחיקת הפרויקט');
     }
   };
-
+  
   const handleCompleteProject = async () => {
-    if (!id || !project) return;
-    
     try {
-      const updatedProject = await projectService.completeProject(id);
+      if (!project || !project.id) return;
+      
+      const updatedProject = await projectService.completeProject(project.id);
+      
       if (updatedProject) {
         setProject(updatedProject);
       }
+      
+      setOpenCompleteConfirm(false);
     } catch (err) {
       console.error('Error completing project:', err);
+      setError('אירעה שגיאה בסימון הפרויקט כהושלם');
     }
   };
-
-  const handleMilestoneToggle = async (index: number) => {
-    if (!project || !id) return;
-    
+  
+  const handleAddMilestone = () => {
+    setSelectedMilestone(null);
+    setOpenMilestoneForm(true);
+  };
+  
+  const handleEditMilestone = (milestone: Milestone) => {
+    setSelectedMilestone(milestone);
+    setOpenMilestoneForm(true);
+  };
+  
+  const handleMilestoneFormSubmit = async (milestoneData: any) => {
     try {
-      const milestones = [...project.milestones];
-      const updatedMilestone = {
-        ...milestones[index],
-        completed: !milestones[index].completed
-      };
+      if (!project || !project.id) return;
       
-      const updatedProject = await projectService.updateMilestone(
-        id,
-        index,
-        updatedMilestone
-      );
+      let updatedProject;
+      
+      if (selectedMilestone) {
+        // Update existing milestone
+        const milestoneIndex = project.milestones.findIndex(m => m.id === selectedMilestone.id);
+        
+        if (milestoneIndex !== -1) {
+          const updatedMilestone = {
+            ...selectedMilestone,
+            title: milestoneData.title,
+            description: milestoneData.description,
+            dueDate: milestoneData.dueDate
+          };
+          
+          updatedProject = await projectService.updateMilestone(
+            project.id,
+            milestoneIndex,
+            updatedMilestone
+          );
+        }
+      } else {
+        // Create new milestone
+        const newMilestone: Milestone = {
+          id: uuidv4(),
+          title: milestoneData.title,
+          description: milestoneData.description,
+          dueDate: milestoneData.dueDate,
+          createdAt: new Date().toISOString()
+        };
+        
+        const updatedMilestones = [...project.milestones, newMilestone];
+        
+        updatedProject = await projectService.updateProject({
+          ...project,
+          milestones: updatedMilestones
+        });
+      }
+      
+      if (updatedProject) {
+        setProject(updatedProject);
+      }
+      
+      setOpenMilestoneForm(false);
+    } catch (err) {
+      console.error('Error saving milestone:', err);
+      setError('אירעה שגיאה בשמירת אבן הדרך');
+    }
+  };
+  
+  const handleDeleteMilestone = async (milestoneId: string) => {
+    try {
+      if (!project || !project.id) return;
+      
+      const updatedMilestones = project.milestones.filter(m => m.id !== milestoneId);
+      
+      const updatedProject = await projectService.updateProject({
+        ...project,
+        milestones: updatedMilestones
+      });
       
       if (updatedProject) {
         setProject(updatedProject);
       }
     } catch (err) {
-      console.error('Error updating milestone:', err);
+      console.error('Error deleting milestone:', err);
+      setError('אירעה שגיאה במחיקת אבן הדרך');
     }
   };
-
-  const handleAddMilestone = async () => {
-    if (!project || !id || !newMilestone.trim()) return;
-    
+  
+  const handleCompleteMilestone = async (milestone: Milestone, completed: boolean) => {
     try {
-      const updatedProject = { ...project };
-      const newMilestoneObj: Milestone = {
-        id: crypto.randomUUID(),
-        title: newMilestone.trim(),
-        completed: false,
-        dueDate: new Date().toISOString()
-      };
+      if (!project || !project.id) return;
       
-      updatedProject.milestones = [...(updatedProject.milestones || []), newMilestoneObj];
+      const milestoneIndex = project.milestones.findIndex(m => m.id === milestone.id);
       
-      const savedProject = await projectService.updateProject(updatedProject);
-      if (savedProject) {
-        setProject(savedProject);
+      if (milestoneIndex !== -1) {
+        const updatedMilestone = {
+          ...milestone,
+          completed,
+          completedAt: completed ? new Date().toISOString() : undefined
+        };
+        
+        await projectService.updateMilestone(
+          project.id,
+          milestoneIndex,
+          updatedMilestone
+        );
+        
+        // Refresh the project data
+        const refreshedProject = await projectService.getProjectById(project.id);
+        
+        if (refreshedProject) {
+          setProject(refreshedProject);
+        }
       }
-      setNewMilestone('');
-      setAddMilestoneDialogOpen(false);
     } catch (err) {
-      console.error('Error adding milestone:', err);
+      console.error('Error updating milestone status:', err);
+      setError('אירעה שגיאה בעדכון סטטוס אבן הדרך');
     }
   };
-
+  
+  // Determine status color
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'לא התחיל':
+        return 'default';
+      case 'בתהליך':
+        return 'primary';
+      case 'מושהה':
+        return 'warning';
+      case 'הושלם':
+        return 'success';
+      default:
+        return 'default';
+    }
+  };
+  
   if (loading) {
     return (
-      <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <Typography variant="h5" sx={{ mb: 2 }}>טוען פרויקט...</Typography>
-        <LinearProgress sx={{ width: '50%' }} />
+      <Box p={3}>
+        <Typography variant="h6" gutterBottom>
+          טוען פרויקט...
+        </Typography>
+        <LinearProgress />
       </Box>
     );
   }
-
+  
   if (error || !project) {
     return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="h5" color="error">{error || 'הפרויקט לא נמצא'}</Typography>
+      <Box p={3}>
+        <Typography color="error" variant="h6">
+          {error || 'הפרויקט לא נמצא'}
+        </Typography>
         <Button 
-          startIcon={<ArrowBackIcon />} 
           variant="contained" 
+          startIcon={<ArrowBackIcon />}
           onClick={() => navigate('/projects')}
           sx={{ mt: 2 }}
         >
@@ -203,229 +292,196 @@ const ProjectDetail: React.FC = () => {
       </Box>
     );
   }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'לא התחיל': return 'info';
-      case 'בתהליך': return 'warning';
-      case 'הושלם': return 'success';
-      default: return 'default';
-    }
-  };
-
-  const projectName = project.name || project.title || '';
-
+  
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
+    <Box p={3}>
+      <Box mb={3} display="flex" alignItems="center">
+        <IconButton
           onClick={() => navigate('/projects')}
+          sx={{ mr: 2 }}
         >
-          חזרה לרשימה
-        </Button>
-        <Stack direction="row" spacing={1}>
-          <Tooltip title="ערוך פרויקט">
-            <IconButton onClick={handleEditClick} color="primary">
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="סמן כהושלם">
-            <IconButton 
-              onClick={handleCompleteProject} 
-              color="success"
-              disabled={project.status === 'הושלם'}
-            >
-              <CheckIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="מחק פרויקט">
-            <IconButton onClick={handleDeleteClick} color="error">
-              <DeleteIcon />
-            </IconButton>
-          </Tooltip>
-        </Stack>
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h4" component="h1">
+          {project.name}
+        </Typography>
       </Box>
-
-      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Typography variant="h4">{projectName}</Typography>
-          <Chip 
-            label={project.status} 
-            color={getStatusColor(project.status) as "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"}
-            icon={<FlagIcon />}
-          />
-        </Box>
-        
-        <Divider sx={{ mb: 2 }} />
-        
-        <Box sx={{ display: 'flex', flexDirection: {xs: 'column', md: 'row'}, gap: 2 }}>
-          <Box sx={{ flex: 1 }}>
+      
+      <Grid container spacing={3}>
+        <Grid component="div" item xs={12} md={8}>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Box display="flex" justifyContent="space-between" alignItems="flex-start">
+              <Box>
+                <Typography variant="h5" gutterBottom>
+                  {project.name}
+                </Typography>
+                <Chip 
+                  label={project.status} 
+                  color={getStatusColor(project.status) as any}
+                  sx={{ mb: 2 }}
+                />
+              </Box>
+              <Box>
+                <Tooltip title="עריכת פרויקט">
+                  <IconButton onClick={handleEditProject}>
+                    <EditIcon />
+                  </IconButton>
+                </Tooltip>
+                {project.status !== 'הושלם' && (
+                  <Tooltip title="סמן כהושלם">
+                    <IconButton onClick={() => setOpenCompleteConfirm(true)} color="success">
+                      <CompleteIcon />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                <Tooltip title="מחק פרויקט">
+                  <IconButton onClick={() => setOpenDeleteConfirm(true)} color="error">
+                    <DeleteIcon />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </Box>
+            
+            <Divider sx={{ my: 2 }} />
+            
             <Typography variant="body1" paragraph>
               {project.description}
             </Typography>
-          </Box>
-          <Box sx={{ width: {xs: '100%', md: '25%'} }}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="subtitle2">תאריך יעד</Typography>
-                <Typography variant="body1" sx={{ mb: 1 }}>
-                  {formatDate(project.dueDate)}
+            
+            <Grid component="div" item xs={12} md={6}>
+              <Box display="flex" alignItems="center" mt={2}>
+                <Typography variant="body2" color="textSecondary" sx={{ minWidth: 120 }}>
+                  תאריך יצירה:
                 </Typography>
-                
-                <Typography variant="subtitle2">תאריך יצירה</Typography>
-                <Typography variant="body1">
+                <Typography variant="body2">
                   {formatDate(project.createdAt)}
                 </Typography>
-              </CardContent>
-            </Card>
-          </Box>
-        </Box>
-
-        <Typography variant="h6" sx={{ mt: 3, mb: 1 }}>התקדמות</Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <Box sx={{ flexGrow: 1, mr: 1 }}>
-            <LinearProgress 
-              variant="determinate" 
-              value={project.progress} 
-              color={
-                project.progress === 100 
-                  ? 'success' 
-                  : project.progress > 0 
-                    ? 'warning' 
-                    : 'primary'
-              }
-              sx={{ height: 10, borderRadius: 5 }}
-            />
-          </Box>
-          <Typography variant="body2" color="text.secondary">
-            {project.progress}%
-          </Typography>
-        </Box>
-      </Paper>
-
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">אבני דרך</Typography>
-          <Button 
-            startIcon={<AddIcon />}
-            variant="outlined"
-            size="small"
-            onClick={() => setAddMilestoneDialogOpen(true)}
-          >
-            הוסף אבן דרך
-          </Button>
-        </Box>
-        
-        {project.milestones && project.milestones.length > 0 ? (
-          <List>
-            {project.milestones.map((milestone, index) => (
-              <ListItem
-                key={index}
-                secondaryAction={
-                  <Checkbox
-                    edge="end"
-                    checked={milestone.completed}
-                    onChange={() => handleMilestoneToggle(index)}
-                    disabled={project.status === 'הושלם'}
-                  />
-                }
-                sx={{
-                  textDecoration: milestone.completed ? 'line-through' : 'none',
-                  opacity: milestone.completed ? 0.7 : 1
-                }}
-              >
-                <ListItemText
-                  primary={milestone.title}
-                />
-              </ListItem>
-            ))}
-          </List>
-        ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
-            טרם הוגדרו אבני דרך לפרויקט זה
-          </Typography>
-        )}
-      </Paper>
-
-      {/* Edit Project Dialog */}
-      <Dialog open={editDialogOpen} onClose={handleEditDialogClose} maxWidth="md" fullWidth>
-        <DialogTitle>עריכת פרויקט</DialogTitle>
-        <DialogContent>
-          {editedProject && (
-            <Box component="form" sx={{ mt: 1 }}>
-              <TextField
-                margin="normal"
-                required
-                fullWidth
-                label="שם הפרויקט"
-                value={editedProject.name || editedProject.title || ''}
-                onChange={(e) => setEditedProject({ ...editedProject, name: e.target.value, title: e.target.value })}
-              />
-              <TextField
-                margin="normal"
-                fullWidth
-                multiline
-                rows={4}
-                label="תיאור"
-                value={editedProject.description}
-                onChange={(e) => setEditedProject({ ...editedProject, description: e.target.value })}
-              />
-              <TextField
-                margin="normal"
-                fullWidth
-                label="תאריך יעד"
-                type="date"
-                InputLabelProps={{ shrink: true }}
-                value={editedProject.dueDate ? editedProject.dueDate.split('T')[0] : ''}
-                onChange={(e) => setEditedProject({ ...editedProject, dueDate: e.target.value })}
+              </Box>
+              
+              <Box display="flex" alignItems="center" mt={1}>
+                <Typography variant="body2" color="textSecondary" sx={{ minWidth: 120 }}>
+                  תאריך יעד:
+                </Typography>
+                <Typography variant="body2">
+                  {project.dueDate ? formatDate(project.dueDate) : 'לא נקבע'}
+                </Typography>
+              </Box>
+            </Grid>
+            
+            <Box mt={3}>
+              <Typography variant="body2" color="textSecondary" gutterBottom>
+                התקדמות: {project.progress}%
+              </Typography>
+              <LinearProgress 
+                variant="determinate" 
+                value={project.progress} 
+                sx={{ height: 10, borderRadius: 5 }}
               />
             </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditDialogClose}>ביטול</Button>
-          <Button onClick={handleEditDialogSave} variant="contained">שמור</Button>
-        </DialogActions>
-      </Dialog>
-
+          </Paper>
+          
+          <Paper sx={{ p: 3 }}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="h6">
+                אבני דרך
+              </Typography>
+              <Button
+                startIcon={<AddIcon />}
+                onClick={handleAddMilestone}
+                variant="outlined"
+              >
+                הוסף אבן דרך
+              </Button>
+            </Box>
+            
+            <MilestoneList 
+              projectId={project.id}
+              milestones={project.milestones}
+              onUpdate={async () => {
+                // Refresh the project data
+                if (project.id) {
+                  const refreshedProject = await projectService.getProjectById(project.id);
+                  if (refreshedProject) {
+                    setProject(refreshedProject);
+                  }
+                }
+              }}
+            />
+          </Paper>
+        </Grid>
+        
+        <Grid component="div" item xs={12} md={4}>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              סטטיסטיקה
+            </Typography>
+            
+            <Box mt={2}>
+              <Typography variant="body2" gutterBottom>
+                סך הכל אבני דרך: {project.milestones.length}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                אבני דרך שהושלמו: {project.milestones.filter(m => m.completed).length}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                אבני דרך שטרם הושלמו: {project.milestones.filter(m => !m.completed).length}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
+      
+      {/* Project Form Dialog */}
+      {openProjectForm && (
+        <ProjectForm
+          open={openProjectForm}
+          onClose={() => setOpenProjectForm(false)}
+          onSubmit={handleProjectFormSubmit}
+          initialValues={project}
+          title="עריכת פרויקט"
+        />
+      )}
+      
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>מחיקת פרויקט</DialogTitle>
+      <Dialog
+        open={openDeleteConfirm}
+        onClose={() => setOpenDeleteConfirm(false)}
+      >
+        <DialogTitle>אישור מחיקה</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            האם את/ה בטוח/ה שברצונך למחוק את הפרויקט? פעולה זו אינה ניתנת לביטול.
+            האם אתה בטוח שברצונך למחוק את הפרויקט "{project.name}"?
+            פעולה זו אינה ניתנת לביטול.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>ביטול</Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
-            מחק
+          <Button onClick={() => setOpenDeleteConfirm(false)}>
+            ביטול
+          </Button>
+          <Button onClick={handleDeleteProject} color="error">
+            מחיקה
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Add Milestone Dialog */}
-      <Dialog open={addMilestoneDialogOpen} onClose={() => setAddMilestoneDialogOpen(false)}>
-        <DialogTitle>הוספת אבן דרך</DialogTitle>
+      
+      {/* Complete Confirmation Dialog */}
+      <Dialog
+        open={openCompleteConfirm}
+        onClose={() => setOpenCompleteConfirm(false)}
+      >
+        <DialogTitle>אישור השלמה</DialogTitle>
         <DialogContent>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="שם אבן הדרך"
-            fullWidth
-            value={newMilestone}
-            onChange={(e) => setNewMilestone(e.target.value)}
-          />
+          <DialogContentText>
+            האם אתה בטוח שברצונך לסמן את הפרויקט "{project.name}" כהושלם?
+            פעולה זו תעדכן את ההתקדמות ל-100% ואת הסטטוס ל"הושלם".
+          </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddMilestoneDialogOpen(false)}>ביטול</Button>
-          <Button 
-            onClick={handleAddMilestone}
-            variant="contained"
-            disabled={!newMilestone.trim()}
-          >
-            הוסף
+          <Button onClick={() => setOpenCompleteConfirm(false)}>
+            ביטול
+          </Button>
+          <Button onClick={handleCompleteProject} color="success">
+            סמן כהושלם
           </Button>
         </DialogActions>
       </Dialog>
